@@ -1,37 +1,171 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EqualPartsSugar</title>
+    <link rel="icon" type="image/x-icon" href="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png">
+    <style>
+        :root {
+            --bg: #e8e8e8;
+            --text: #161616;
+            --border: #1f1f1f;
+        }
 
-<html>
-    <head>
-        <title>EqualPartsSugar</title>
-        <link rel="icon" type="image/x-icon" href="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png">
-    </head>
-    <body>
-        <span>
-            <img src="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png" width="20px" length="20px"></img><a style="font-size: 30px; font-weight: bold;">EqualPartsSugar.Live!</a> • <a href="subjects/history.html">History</a> • <a href="subjects/founders.html">Founders</a>
-        </span>
-        <hr>
-        <p style="background-color: orange;">⚠️ hey, the site is currently under construction, more articles are in the works and we are also planning on adding more games.</p>
-        <h2>About</h2>
-        <p>
-            EqualPartsSugar.Live is this very website developed by SirFlanny and Finomon. Here we host games, articles, and more!
-            <br>
-            All games hosted here are developed by EqualPartsSugar or used with permission from the game's creator.
-            <br>
-            <b>Articles:</b> The articles on the website document people and incidents related to Mater Brickell or EqualPartsSugar.<br>
-            <b>Games:</b> All games hosted on the website will be downloadable (ONLY ON WINDOWS) or playable directly on the website.
-        </p>
-        <h3>Articles</h3>
-        <ul>
-            <li><a href="articles/todd.html">Todd Huffman</a></li>
-            <li><a href="articles/no-drugs-speech.html">Say No to Drugs</a></li>
-            <li><a href=articles/cookies.html>Chocolate Chip Cookies</a></li>
-            <li><a href=articles/processed-meat.html>Processed Meat</a></li>
-            <li><a href=articles/Mental-Health-Speech.html>Mental Health Speech</a></li>
-            <!-- ADD THIS WHEN YOU FINISH SECURITY GUARD <li><a href=articles/security-guard.html>Corrupt Security Guard</a></li> -->
-        </ul>
-        <h3>Games</h3>
-        <p>American Tower Defense!</p>
-        <iframe src="https://scratch.mit.edu/projects/1083410290/embed" allowtransparency="true" width="485" height="402" frameborder="0" scrolling="no" allowfullscreen="no"></iframe>
-    </body>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+        }
+
+        .page {
+            max-width: 1550px;
+            margin: 0 auto;
+            padding: 22px 22px 46px;
+        }
+
+        .header { text-align: center; margin: 10px 0 20px; }
+        .header h1 {
+            margin: 0;
+            font-size: clamp(2.4rem, 6vw, 4.2rem);
+            letter-spacing: 1px;
+            text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+        }
+        .header p { margin: 6px 0 0; font-size: 1.25rem; opacity: 0.92; }
+
+        .notice {
+            margin: 0 auto 26px;
+            max-width: 1080px;
+            border: 2px solid #c17f09;
+            background: #ffd486;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 700;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.12);
+        }
+
+        .tiles {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        .tile,
+        .tile-panel {
+            min-height: 190px;
+            border: 4px solid var(--border);
+            border-radius: 22px;
+            padding: 18px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.45);
+        }
+
+        .tile {
+            color: #111;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: 900;
+            font-size: clamp(1.4rem, 2.7vw, 3.5rem);
+            line-height: 1.05;
+            position: relative;
+            overflow: hidden;
+            transition: transform .15s ease;
+        }
+
+        .tile:hover { transform: translateY(-2px) scale(1.01); }
+
+        .tile .accent {
+            position: absolute;
+            font-size: clamp(1rem, 1.7vw, 1.8rem);
+            opacity: 0.88;
+            pointer-events: none;
+        }
+
+        .accent.left { left: 14px; top: 12px; }
+        .accent.right { right: 14px; bottom: 12px; }
+
+        .t1 {
+            background: linear-gradient(145deg, #10131f 0%, #1d2550 55%, #2f3765 100%);
+            color: #f8fbff;
+        }
+        .t2 {
+            background: linear-gradient(145deg, #f8f2df, #efe1bc);
+            color: #3d2f19;
+        }
+        .t3 {
+            background: radial-gradient(circle at 20% 20%, #ffffff, #d8ebff 65%, #b4d6ff);
+            color: #18396d;
+        }
+        .t4 {
+            background: linear-gradient(155deg, #1f8a37, #65bc3d);
+            color: #ffffff;
+        }
+        .t5 {
+            background: linear-gradient(155deg, #ff2d62, #d21836);
+            color: #ffffff;
+        }
+        .t6 {
+            background:
+                radial-gradient(circle at 20% 25%, rgba(255,255,255,0.85) 0 3px, transparent 4px),
+                radial-gradient(circle at 78% 68%, rgba(255,255,255,0.6) 0 4px, transparent 5px),
+                linear-gradient(155deg, #f6fbff, #dce9fb);
+            color: #202b45;
+        }
+        .t7 { background: linear-gradient(160deg, #f6efe2, #dfd1b7); }
+        .t8 { background: linear-gradient(160deg, #fbf8e8, #ece4c8); }
+        .t9 { background: linear-gradient(160deg, #99ccff, #5f8ed8); color: #f4f7ff; }
+        .t10 { background: linear-gradient(160deg, #f5f5f5, #dedede); }
+        .t11 { background: linear-gradient(160deg, #111, #000); color: #fff; }
+
+        .blank {
+            background: repeating-linear-gradient(45deg, #ededed, #ededed 14px, #e1e1e1 14px, #e1e1e1 28px);
+            border-style: dashed;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+        }
+
+        @media (max-width: 980px) {
+            .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .tile, .tile-panel { min-height: 165px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="header">
+            <h1>EqualPartsSugar</h1>
+            <p>games and stuff by EqualPartsSugar</p>
+        </header>
+
+        <p class="notice">⚠️ hey, the site is currently under construction, more articles are in the works and we are also planning on adding more games.</p>
+
+        <section class="tiles" aria-label="EqualPartsSugar picker">
+            <a class="tile t1" href="articles.html">Wikipedia <span class="accent right">📚</span></a>
+            <a class="tile t2" href="#">Placeholder <span class="accent left">✨</span></a>
+            <a class="tile t3" href="games.html">New York<br>Tower Defense <span class="accent right">🗽</span></a>
+
+            <a class="tile t4" href="#">Placeholder <span class="accent left">🧩</span></a>
+            <a class="tile t5" href="#">Placeholder <span class="accent right">⚡</span></a>
+            <a class="tile t6" href="articles.html">Articles <span class="accent left">📰</span></a>
+
+            <a class="tile t7" href="#">Placeholder 1</a>
+            <a class="tile t8" href="#">Placeholder 2</a>
+            <a class="tile t9" href="#">Placeholder 3</a>
+
+            <a class="tile t10" href="#">Placeholder 4</a>
+            <a class="tile t11" href="#">Placeholder 5</a>
+            <div class="tile-panel blank">Blank Spot</div>
+        </section>
+    </main>
+</body>
 </html>
-
