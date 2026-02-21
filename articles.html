@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EqualPartsSugar - Articles</title>
+    <style>
+        :root {
+            --bg: #efe6c7;
+            --border: #2a2110;
+            --ink: #17140f;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: "Trebuchet MS", sans-serif;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(255,255,255,.2), transparent 45%),
+                var(--bg);
+            color: var(--ink);
+            margin: 0;
+        }
+
+        .page {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 28px 24px 52px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 16px;
+            text-decoration: none;
+            color: #1d3f75;
+            font-weight: 700;
+            background: #e4eeff;
+            border: 2px solid #315895;
+            border-radius: 999px;
+            padding: 9px 14px;
+        }
+
+        .wiki-shell {
+            background: linear-gradient(165deg, #f6d88f, #efc970 55%, #e3b754);
+            border: 4px solid var(--border);
+            border-radius: 26px;
+            padding: 20px;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+        }
+
+        .wiki-header {
+            border: 3px solid #8e6121;
+            border-radius: 14px;
+            background: rgba(255, 252, 241, 0.55);
+            padding: 16px 18px;
+            margin-bottom: 16px;
+        }
+
+        .wiki-header h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.8rem); }
+        .wiki-header p { margin: 8px 0 0; opacity: 0.9; font-weight: 700; font-size: 1.05rem; }
+
+        .group {
+            border: 3px solid #8f5d17;
+            border-radius: 18px;
+            background: rgba(255,248,224,.62);
+            padding: 16px;
+        }
+
+        .group + .group { margin-top: 14px; }
+
+        .group h2 {
+            margin: 0 0 12px;
+            font-size: 1.4rem;
+            letter-spacing: .3px;
+        }
+
+        .article-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+            gap: 16px;
+        }
+
+        .article-tile {
+            text-decoration: none;
+            color: inherit;
+            border: 3px solid var(--border);
+            border-radius: 18px;
+            min-height: 150px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+            transition: transform .14s ease;
+        }
+
+        .article-tile:hover { transform: translateY(-2px); }
+        .article-tile strong { font-size: 1.5rem; }
+        .article-tile span { opacity: .78; font-weight: 700; font-size: 1.02rem; }
+
+        .a1 { background: linear-gradient(160deg, #ffffff, #e7f0ff); }
+        .a2 { background: linear-gradient(160deg, #fff4f7, #ffd5e2); }
+        .a3 { background: linear-gradient(160deg, #fffdf0, #f2e6b2); }
+        .a4 { background: linear-gradient(160deg, #edfdf2, #c9efdc); }
+        .a5 { background: linear-gradient(160deg, #f3eeff, #d7c8ff); }
+        .a6 { background: linear-gradient(160deg, #f3f3f3, #dbdbdb); }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <a class="back" href="index.html">← Back to Home</a>
+
+        <section class="wiki-shell">
+            <header class="wiki-header">
+                <h1>Wikipedia / Articles</h1>
+                <p>Select an article card to open it.</p>
+            </header>
+
+            <section class="group">
+                <h2>People</h2>
+                <div class="article-grid" aria-label="People articles">
+                    <a class="article-tile a1" href="articles/todd.html"><strong>Todd Huffman</strong><span>Profile</span></a>
+                </div>
+            </section>
+
+            <section class="group">
+                <h2>Incidents</h2>
+                <div class="article-grid" aria-label="Incident articles">
+                    <a class="article-tile a2" href="articles/no-drugs-speech.html"><strong>Say No to Drugs</strong><span>Incidents</span></a>
+                    <a class="article-tile a5" href="articles/Mental-Health-Speech.html"><strong>Mental Health Speech</strong><span>Incidents</span></a>
+                    <a class="article-tile a6" href="articles/security-guard.html"><strong>Corrupt Security Guard</strong><span>Incidents</span></a>
+                </div>
+            </section>
+
+            <section class="group">
+                <h2>Objects</h2>
+                <div class="article-grid" aria-label="Object articles">
+                    <a class="article-tile a3" href="articles/cookies.html"><strong>Chocolate Chip Cookies</strong><span>Objects</span></a>
+                    <a class="article-tile a4" href="articles/processed-meat.html"><strong>Processed Meat</strong><span>Objects</span></a>
+                </div>
+            </section>
+        </section>
+    </main>
+</body>
+</html>
