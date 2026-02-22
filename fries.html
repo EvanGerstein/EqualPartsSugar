@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fried</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background:linear-gradient(145deg,#0e2a69,#1a4fb8 45%, #f4c22d 130%); color:#0f172a; }
+    .topbar { height:68px; background:linear-gradient(90deg,#0e2a69,#1e57c7); border-bottom:2px solid #f4c22d; display:flex; align-items:center; padding:0 16px; gap:12px; position:sticky; top:0; z-index:10; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+    .logo { font-size:1.55rem; font-weight:800; color:#ffd54f; text-shadow:0 1px 0 rgba(0,0,0,.35); }
+    .search { flex:1; border:2px solid #f4c22d; border-radius:24px; padding:10px 14px; background:#fff8dc; color:#1f2a44; }
+    .layout { display:grid; grid-template-columns: 430px 1fr; min-height: calc(100vh - 64px); }
+    .sidebar { background:#fdf7df; border-right:3px solid #f4c22d; overflow:auto; padding:14px; }
+
+    .map {
+      position:relative;
+      background:
+        radial-gradient(circle at 25% 20%, rgba(255,255,255,.35), transparent 35%),
+        radial-gradient(circle at 75% 70%, rgba(255,255,255,.22), transparent 40%),
+        linear-gradient(135deg,#8eb6ff,#d6e6ff 45%,#ffe08a);
+      overflow:hidden;
+    }
+    .map::before, .map::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    .map::before { background-image: linear-gradient(90deg, transparent 46%, rgba(255,255,255,.65) 46%, rgba(255,255,255,.65) 54%, transparent 54%), linear-gradient(transparent 46%, rgba(255,255,255,.65) 46%, rgba(255,255,255,.65) 54%, transparent 54%); background-size: 160px 160px; opacity:.32; }
+    .map::after { background-image: linear-gradient(45deg, transparent 48%, rgba(255,255,255,.65) 48%, rgba(255,255,255,.65) 52%, transparent 52%); background-size: 190px 190px; opacity:.2; }
+
+    .mapHeader {
+      position:absolute; top:14px; left:14px; right:14px; z-index:2;
+      background:rgba(255,248,220,.95); border:2px solid #1a4fb8; border-radius:12px; padding:10px 12px; color:#0d2d73;
+    }
+    .mapHeader b { font-size:1.05rem; }
+
+    .marker {
+      position:absolute; transform: translate(-50%, -100%); z-index:3;
+      background:#1a4fb8; color:#fff; border:2px solid #ffe08a; border-radius:12px 12px 12px 2px;
+      min-width: 120px; max-width: 180px; padding:8px 10px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.25);
+      text-align:left;
+    }
+    .marker.active { background:#103f9f; border-color:#ffd54f; box-shadow:0 0 0 3px rgba(255,213,79,.5), 0 4px 10px rgba(0,0,0,.25); }
+    .marker small { display:block; color:#ffe08a; margin-top:2px; }
+    .marker .pin { position:absolute; left:10px; bottom:-11px; font-size:14px; }
+
+    .emptyMap {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2;
+      color:#1f3f7f; font-weight:700; font-size:1.05rem;
+    }
+
+    .card { border:2px solid #1a4fb8; border-radius:14px; padding:12px; margin-bottom:12px; background:#fff7d1; box-shadow:0 2px 0 rgba(26,79,184,.2); }
+    .row { display:flex; gap:8px; }
+    input, textarea, select { width:100%; border:1px solid #dadce0; border-radius:8px; padding:8px; font:inherit; }
+    button { border:none; background:#1a4fb8; color:#fff; padding:9px 12px; border-radius:8px; font-weight:700; cursor:pointer; }
+    button.secondary { background:#f4c22d; color:#1f2a44; }
+    .stars button { background:transparent; color:#fbbc04; font-size:1.4rem; padding:0 2px; }
+    .review { border:2px solid #8fb1ef; border-radius:12px; padding:10px; margin-bottom:10px; background:#eef4ff; }
+    .review img { width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-top:8px; }
+    .muted { color:#334155; font-size:.92rem; }
+    .pill { display:inline-block; background:#1a4fb8; color:#ffe08a; border-radius:999px; padding:4px 8px; font-size:.82rem; margin-bottom:8px; }
+
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .map { min-height:360px; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useMemo, useState, useEffect } = React;
+
+    const STORAGE_USERS = 'fries_users_v1';
+    const STORAGE_REVIEWS = 'fries_reviews_v1';
+    const STORAGE_SESSION = 'fries_session_v1';
+
+    const seedReviews = [
+      { id: 1, user: 'friesfan', restaurant: 'Burger Barn', stars: 4, text: 'Crispy outside, fluffy inside. Great salt balance.', photo: '', createdAt: new Date().toISOString() },
+      { id: 2, user: 'potatopro', restaurant: 'Metro Diner', stars: 5, text: 'Perfect golden fries and amazing portion size.', photo: '', createdAt: new Date().toISOString() }
+    ];
+
+    function load(key, fallback) {
+      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch { return fallback; }
+    }
+
+    function hashPos(name) {
+      let h1 = 0, h2 = 0;
+      for (let i = 0; i < name.length; i++) {
+        const code = name.charCodeAt(i);
+        h1 = (h1 * 31 + code) % 100000;
+        h2 = (h2 * 17 + code) % 100000;
+      }
+      return {
+        x: 12 + (h1 % 76),
+        y: 18 + (h2 % 66)
+      };
+    }
+
+    function App() {
+      const [users, setUsers] = useState(() => load(STORAGE_USERS, []));
+      const [reviews, setReviews] = useState(() => load(STORAGE_REVIEWS, seedReviews));
+      const [sessionUser, setSessionUser] = useState(() => load(STORAGE_SESSION, null));
+
+      const [authMode, setAuthMode] = useState('login');
+      const [auth, setAuth] = useState({ username: '', password: '' });
+
+      const [restaurantFilter, setRestaurantFilter] = useState('');
+      const [form, setForm] = useState({ restaurant: '', stars: 0, text: '', photo: '' });
+
+      useEffect(() => localStorage.setItem(STORAGE_USERS, JSON.stringify(users)), [users]);
+      useEffect(() => localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(reviews)), [reviews]);
+      useEffect(() => localStorage.setItem(STORAGE_SESSION, JSON.stringify(sessionUser)), [sessionUser]);
+
+      const restaurants = useMemo(() => {
+        const set = new Set(reviews.map(r => r.restaurant).filter(Boolean));
+        return Array.from(set).sort();
+      }, [reviews]);
+
+      const mapRestaurants = useMemo(() => {
+        const grouped = {};
+        reviews.forEach(r => {
+          if (!grouped[r.restaurant]) grouped[r.restaurant] = [];
+          grouped[r.restaurant].push(r);
+        });
+
+        return Object.entries(grouped).map(([restaurant, list]) => {
+          const pos = hashPos(restaurant);
+          const avg = (list.reduce((a, b) => a + b.stars, 0) / list.length).toFixed(1);
+          return { restaurant, count: list.length, avg, x: pos.x, y: pos.y };
+        });
+      }, [reviews]);
+
+      const filtered = useMemo(() => {
+        return reviews
+          .filter(r => !restaurantFilter || r.restaurant === restaurantFilter)
+          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }, [reviews, restaurantFilter]);
+
+      function submitAuth(e) {
+        e.preventDefault();
+        const username = auth.username.trim().toLowerCase();
+        const password = auth.password;
+        if (!username || !password) return alert('Enter username and password.');
+
+        if (authMode === 'signup') {
+          if (users.find(u => u.username === username)) return alert('Username already exists.');
+          setUsers([...users, { username, password }]);
+          setSessionUser(username);
+          setAuth({ username: '', password: '' });
+          return;
+        }
+
+        const found = users.find(u => u.username === username && u.password === password);
+        if (!found) return alert('Invalid login.');
+        setSessionUser(found.username);
+        setAuth({ username: '', password: '' });
+      }
+
+      function onPhoto(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setForm(f => ({ ...f, photo: reader.result }));
+        reader.readAsDataURL(file);
+      }
+
+      function submitReview(e) {
+        e.preventDefault();
+        if (!sessionUser) return alert('Log in first.');
+        if (!form.restaurant.trim()) return alert('Restaurant required.');
+        if (form.stars < 1 || form.stars > 5) return alert('Pick 1-5 stars.');
+        if (!form.text.trim()) return alert('Write a review.');
+
+        const newReview = {
+          id: Date.now(),
+          user: sessionUser,
+          restaurant: form.restaurant.trim(),
+          stars: form.stars,
+          text: form.text.trim(),
+          photo: form.photo,
+          createdAt: new Date().toISOString()
+        };
+        setReviews([newReview, ...reviews]);
+        setForm({ restaurant: '', stars: 0, text: '', photo: '' });
+      }
+
+      const avg = filtered.length ? (filtered.reduce((a,r)=>a+r.stars,0)/filtered.length).toFixed(1) : '—';
+
+      return (
+        <>
+          <div className="topbar">
+            <div className="logo">Fried</div>
+            <input className="search" readOnly value={restaurantFilter ? `Showing: ${restaurantFilter}` : 'Find the best fries in your city'} />
+            <a href="index.html" className="muted" style={{color:"#ffe08a", fontWeight:700}}>← Home</a>
+          </div>
+
+          <div className="layout">
+            <aside className="sidebar">
+              <div className="card">
+                <div className="pill">Account</div>
+                {sessionUser ? (
+                  <>
+                    <div><b>Signed in:</b> {sessionUser}</div>
+                    <button className="secondary" onClick={() => setSessionUser(null)} style={{marginTop:8}}>Log out</button>
+                  </>
+                ) : (
+                  <form onSubmit={submitAuth}>
+                    <div className="row" style={{marginBottom:8}}>
+                      <button type="button" className={authMode==='login'?'':'secondary'} onClick={()=>setAuthMode('login')}>Login</button>
+                      <button type="button" className={authMode==='signup'?'':'secondary'} onClick={()=>setAuthMode('signup')}>Sign up</button>
+                    </div>
+                    <input placeholder="username" value={auth.username} onChange={e=>setAuth({...auth, username:e.target.value})} />
+                    <input type="password" placeholder="password" value={auth.password} onChange={e=>setAuth({...auth, password:e.target.value})} style={{marginTop:8}} />
+                    <button style={{marginTop:8}}>{authMode==='signup'?'Create account':'Log in'}</button>
+                  </form>
+                )}
+              </div>
+
+              <div className="card">
+                <div className="pill">Submit fries review</div>
+                <form onSubmit={submitReview}>
+                  <input placeholder="Restaurant name" value={form.restaurant} onChange={e=>setForm({...form, restaurant:e.target.value})} />
+                  <div className="stars" style={{margin:'8px 0'}}>
+                    {[1,2,3,4,5].map(n => (
+                      <button type="button" key={n} onClick={()=>setForm({...form, stars:n})}>{n <= form.stars ? '★' : '☆'}</button>
+                    ))}
+                  </div>
+                  <textarea rows="3" placeholder="How were the fries?" value={form.text} onChange={e=>setForm({...form, text:e.target.value})}></textarea>
+                  <input type="file" accept="image/*" onChange={onPhoto} style={{marginTop:8}} />
+                  <button style={{marginTop:8}}>Post review</button>
+                </form>
+              </div>
+
+              <div className="card">
+                <div className="pill">Filter</div>
+                <select value={restaurantFilter} onChange={e=>setRestaurantFilter(e.target.value)}>
+                  <option value="">All restaurants</option>
+                  {restaurants.map(name => <option key={name} value={name}>{name}</option>)}
+                </select>
+                <div className="muted" style={{marginTop:8}}>Average rating: <b>{avg}</b> / 5</div>
+              </div>
+
+              <div>
+                {filtered.map(r => (
+                  <article key={r.id} className="review">
+                    <b>{r.restaurant}</b> <span className="muted">• {r.stars}★ • @{r.user}</span>
+                    <p style={{margin:'6px 0'}}>{r.text}</p>
+                    {r.photo ? <img src={r.photo} alt="Fries uploaded by user" /> : null}
+                  </article>
+                ))}
+                {!filtered.length && <div className="muted">No reviews yet for this filter.</div>}
+              </div>
+            </aside>
+
+            <section className="map">
+              <div className="mapHeader">
+                <b>🗺️ Fried Map View</b>
+                <div className="muted" style={{marginTop:4}}>
+                  Click a marker to filter by restaurant • {mapRestaurants.length} mapped spot(s)
+                </div>
+              </div>
+
+              {mapRestaurants.map(place => (
+                <button
+                  key={place.restaurant}
+                  className={`marker ${restaurantFilter === place.restaurant ? 'active' : ''}`}
+                  style={{left: `${place.x}%`, top: `${place.y}%`}}
+                  onClick={() => setRestaurantFilter(restaurantFilter === place.restaurant ? '' : place.restaurant)}
+                  title={`Filter by ${place.restaurant}`}
+                >
+                  <b>{place.restaurant}</b>
+                  <small>{place.avg}★ • {place.count} review{place.count > 1 ? 's' : ''}</small>
+                  <span className="pin">📍</span>
+                </button>
+              ))}
+
+              {!mapRestaurants.length && <div className="emptyMap">No restaurants yet — add a review to place one on the map.</div>}
+            </section>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
