@@ -107,6 +107,7 @@
       particles: [], bullets: [], enemies: [], drops: [], flashes: 0, shake: 0,
       abilities: {}, acquired: [],
       beam: { unlocked:false, charges:0, cd:0 },
+      autoCd: 0,
       player: {x: canvas.width/2, y: canvas.height/2, r: 16, speed: 260, hp: 100, maxHp:100, fireCd:0, fireRate:8, damage:15, bulletSpeed:520, projCount:1,
         mods:{ poison:0, freeze:0, bounce:0, split:0, pierce:0, crit:0, size:0, chain:0, trail:0 }
       }
@@ -133,6 +134,16 @@
       {id:'fusion_laserfry', need:['chain','crit'], name:'Ion Fry Storm', effect:()=>{state.player.mods.chain+=1;state.player.mods.crit+=2;state.player.fireRate+=1.5;}},
       {id:'fusion_juicer', need:['trail','size'], name:'Napalm Noodles', effect:()=>{state.player.mods.trail+=1;state.player.mods.size+=1;state.player.damage+=5;}}
     ];
+
+
+    function seedWave() {
+      const p = state.player;
+      for (let i=0;i<10;i++) {
+        const a = (Math.PI*2/10)*i;
+        const d = rand(180, 360);
+        const e = enemyTemplate();
+        state.enemies.push({...e, x:p.x+Math.cos(a)*d, y:p.y+Math.sin(a)*d, vx:0, vy:0, elite:false, boss:false, hp:e.hp, maxHp:e.hp, poison:0, poisonDps:0, freeze:0, hitFlash:0});
+      }
       running: true,
       t: 0,
       score: 0,
@@ -187,6 +198,7 @@
       const e = template || enemyTemplate();
       const side = (Math.random()*4)|0;
       let x=0,y=0;
+      if(side===0){x=-10;y=rand(0,canvas.height);} if(side===1){x=canvas.width+10;y=rand(0,canvas.height);} if(side===2){x=rand(0,canvas.width);y=-10;} if(side===3){x=rand(0,canvas.width);y=canvas.height+10;}
       if(side===0){x=-30;y=rand(0,canvas.height);} if(side===1){x=canvas.width+30;y=rand(0,canvas.height);} if(side===2){x=rand(0,canvas.width);y=-30;} if(side===3){x=rand(0,canvas.width);y=canvas.height+30;}
       const m = elite ? 1.8 : 1;
       state.enemies.push({...e,x,y,vx:0,vy:0, elite, boss:false, hp:e.hp*m, maxHp:e.hp*m, poison:0, poisonDps:0, freeze:0, hitFlash:0});
@@ -404,6 +416,18 @@
       p.y = Math.max(p.r, Math.min(canvas.height-p.r, p.y));
 
       p.fireCd -= dt;
+      state.autoCd -= dt;
+      if (mouse.down && p.fireCd <= 0) {
+        shootAt(mouse.x, mouse.y, 0.06);
+        p.fireCd = 1/p.fireRate;
+      }
+      if (!mouse.down && state.autoCd <= 0) {
+        const target = state.enemies.find(e => e.type !== 'enemyBullet');
+        if (target) {
+          shootAt(target.x, target.y, 0.03);
+          state.autoCd = 0.35;
+        }
+      }
       if (mouse.down && p.fireCd <= 0) {
         shootAt(mouse.x, mouse.y, 0.06);
         shootAt(mouse.x, mouse.y, 0.07);
@@ -670,6 +694,9 @@
       const ang = Math.atan2(mouse.y-p.y, mouse.x-p.x);
       ctx.save();
       ctx.translate(p.x,p.y); ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(77,211,255,0.22)'; ctx.beginPath(); ctx.arc(0,0,p.r+14,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#4dd3ff'; ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffe08a'; ctx.fillRect(6,-4,18,8);
       ctx.fillStyle = '#4dd3ff'; ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill();
       ctx.fillStyle = '#ffe08a'; ctx.fillRect(6,-4,18,8);
       ctx.fillStyle = '#4dd3ff';
@@ -717,6 +744,7 @@
       ui.beam.textContent = state.beam.unlocked ? `Beam: ${state.beam.charges} (${state.beam.cd>0?state.beam.cd.toFixed(1)+'s':'Ready'})` : 'Beam: Locked';
     }
 
+    seedWave();
     }
 
     generateAbilities();
