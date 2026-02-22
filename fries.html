@@ -48,6 +48,11 @@
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2;
       color:#1f3f7f; font-weight:700; font-size:1.05rem;
     }
+    .map { position:relative; background:linear-gradient(135deg,#8eb6ff,#d6e6ff 45%,#ffe08a); display:flex; align-items:center; justify-content:center; }
+    .roads::before, .roads::after { content:""; position:absolute; inset:0; background-size: 160px 160px; opacity:.22; }
+    .roads::before { background-image: linear-gradient(90deg, transparent 45%, #fff 45%, #fff 55%, transparent 55%), linear-gradient(transparent 45%, #fff 45%, #fff 55%, transparent 55%); }
+    .roads::after { background-image: linear-gradient(45deg, transparent 48%, #fff 48%, #fff 52%, transparent 52%); }
+    .map h2 { position:relative; background:rgba(255,248,220,.95); padding:14px 18px; border-radius:12px; border:2px solid #1a4fb8; color:#0d2d73; }
 
     .card { border:2px solid #1a4fb8; border-radius:14px; padding:12px; margin-bottom:12px; background:#fff7d1; box-shadow:0 2px 0 rgba(26,79,184,.2); }
     .row { display:flex; gap:8px; }
@@ -61,6 +66,7 @@
     .pill { display:inline-block; background:#1a4fb8; color:#ffe08a; border-radius:999px; padding:4px 8px; font-size:.82rem; margin-bottom:8px; }
 
     @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .map { min-height:360px; } }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .map { min-height:260px; } }
   </style>
 </head>
 <body>
@@ -275,6 +281,8 @@
               ))}
 
               {!mapRestaurants.length && <div className="emptyMap">No restaurants yet — add a review to place one on the map.</div>}
+            <section className="map roads">
+              <h2>🗺️ Fried Map View</h2>
             </section>
           </div>
         </>
