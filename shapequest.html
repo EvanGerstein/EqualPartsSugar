@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ShapeQuest</title>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 * { margin:0;padding:0;box-sizing:border-box; }
 :root { --bg:#f5f4f0;--ink:#1c1c1a;--soft:#b8b5ae;--line:#e2e0db; }
@@ -87,6 +88,33 @@ nav a:hover,nav a.on { color:var(--ink); }
   position:absolute;bottom:5px;right:7px;
   font-family:'DM Mono',monospace;font-size:.55rem;color:var(--soft);
 }
+
+/* ── AUTH MODAL ── */
+.auth-modal { position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(245,244,240,.88);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .2s; }
+.auth-modal.active { opacity:1;pointer-events:all; }
+.auth-card { background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px 28px;width:300px;max-width:90vw;position:relative; }
+.auth-close { position:absolute;top:12px;right:14px;background:none;border:none;cursor:pointer;font-size:1rem;color:var(--soft);padding:4px; }
+.auth-title { font-family:'Instrument Serif',serif;font-size:1.3rem;color:var(--ink);margin-bottom:20px; }
+.auth-google-btn { display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.5px;color:var(--ink);transition:background .15s,border-color .15s;margin-bottom:16px; }
+.auth-google-btn:hover { background:#f8f8f8;border-color:#aaa; }
+.auth-divider { display:flex;align-items:center;gap:10px;margin:10px 0 14px;color:var(--soft);font-size:.58rem;letter-spacing:1.5px;text-transform:uppercase; }
+.auth-divider::before,.auth-divider::after { content:'';flex:1;height:1px;background:var(--line); }
+.auth-input { display:block;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-family:'DM Mono',monospace;font-size:.7rem;color:var(--ink);background:#fff;margin-bottom:8px;outline:none;transition:border-color .15s;box-sizing:border-box; }
+.auth-input:focus { border-color:#888; }
+.auth-error { font-size:.62rem;color:#c03020;margin-bottom:8px;padding:6px 10px;background:#fff0ee;border-radius:6px;line-height:1.4; }
+.auth-submit { width:100%;padding:10px 14px;background:var(--ink);color:var(--bg);border:none;border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:1px;transition:opacity .15s;margin-top:4px; }
+.auth-submit:hover { opacity:.82; }
+.auth-submit:disabled { opacity:.45;cursor:not-allowed; }
+.auth-switch { font-size:.62rem;color:var(--soft);text-align:center;margin-top:14px; }
+.auth-switch a { color:var(--ink);text-decoration:none; }
+.auth-switch a:hover { text-decoration:underline; }
+.auth-user-name { font-size:.8rem;font-family:'Instrument Serif',serif;color:var(--ink);margin-bottom:6px; }
+.auth-user-email { font-size:.62rem;color:var(--soft);margin-bottom:20px; }
+.auth-signout-btn { width:100%;padding:9px 14px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--soft);transition:border-color .15s,color .15s; }
+.auth-signout-btn:hover { border-color:#aaa;color:var(--ink); }
+.auth-sync-note { font-size:.58rem;color:var(--soft);text-align:center;margin-top:10px;letter-spacing:.3px; }
+#authNavBtn { cursor:pointer; }
+#authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.58rem;letter-spacing:0; }
 
 /* ── DETAIL MODAL ── */
 #detail {
@@ -235,6 +263,7 @@ nav a:hover,nav a.on { color:var(--ink); }
   <a class="on" onclick="showPage('collect')">Collect</a>
   <a onclick="showPage('catalogue')">Catalogue</a>
   <a onclick="showPage('ranks')">Ranks</a>
+  <a id="authNavBtn" onclick="openAuthModal()">Sign In</a>
 </nav>
 <div class="corner-stat"><div class="lbl">Level</div><div class="val">12</div><div class="xp-track"><div class="xp-fill"></div></div></div>
 <div class="corner-coins"><div class="lbl">Coins</div><div class="val" id="coins">4,820</div></div>
@@ -271,6 +300,33 @@ nav a:hover,nav a.on { color:var(--ink); }
   </div>
   <div class="cat-grid-wrap">
     <div class="cat-grid" id="catGrid"></div>
+  </div>
+</div>
+
+<!-- Auth modal -->
+<div id="authModal" class="auth-modal" onclick="closeAuthModal(event)">
+  <div class="auth-card">
+    <button class="auth-close" onclick="closeAuthModal(event)">✕</button>
+    <div id="authSignedIn" style="display:none">
+      <div class="auth-title">Account</div>
+      <div class="auth-user-name" id="authUserName"></div>
+      <div class="auth-user-email" id="authUserEmail"></div>
+      <div class="auth-sync-note">Your collection &amp; progress syncs automatically across devices.</div>
+      <button class="auth-signout-btn" style="margin-top:18px" onclick="doSignOut()">Sign Out</button>
+    </div>
+    <div id="authSignedOut">
+      <div class="auth-title" id="authModeTitle">Sign In</div>
+      <button class="auth-google-btn" onclick="signInWithGoogle()">
+        <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-divider"><span>or</span></div>
+      <input id="authEmail" class="auth-input" type="email" placeholder="Email" autocomplete="email" onkeydown="if(event.key==='Enter')submitAuth()"/>
+      <input id="authPassword" class="auth-input" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()"/>
+      <div id="authError" class="auth-error" style="display:none"></div>
+      <button id="authSubmitBtn" class="auth-submit" onclick="submitAuth()">Sign In</button>
+      <div id="authModeSwitchTxt" class="auth-switch">Don't have an account? <a href="#" onclick="setAuthMode('signup');return false">Sign up</a></div>
+    </div>
   </div>
 </div>
 
@@ -1459,6 +1515,7 @@ function recordRoll(shape, effect, ptsVal, size=null) {
     const sz = size||SIZE_MODS[0];
     collection[key] = { shape, effect, size:sz, count:1, bestPts:ptsVal, score:rarityScore(shape.id,effect.id,sz.id) };
   }
+  scheduleCloudSave();
 }
 
 // ═══════════════════════════════════════════════
@@ -1620,10 +1677,199 @@ function showPage(page) {
   }
 }
 
+// ═══════════════════════════════════════════════
+// AUTH + CLOUD SAVE
+// ═══════════════════════════════════════════════
+const sbClient = supabase.createClient(SB_URL, SB_KEY);
+let currentUser = null;
+let saveTimer = null;
+
+function scheduleCloudSave() {
+  if (!currentUser) return;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveUserData, 6000);
+}
+
+async function saveUserData() {
+  if (!currentUser) return;
+  try {
+    const colData = {};
+    for (const [k, v] of Object.entries(collection)) {
+      colData[k] = { shapeId:v.shape.id, effectId:v.effect.id, sizeId:v.size?v.size.id:null, count:v.count, bestPts:v.bestPts, score:v.score };
+    }
+    await sbClient.from('user_data').upsert({
+      user_id: currentUser.id,
+      player_name: playerName||'',
+      school: playerSchool||'',
+      coins: coinCount,
+      level: playerLevel,
+      xp: playerXP,
+      collection: colData,
+      ts: Date.now()
+    });
+  } catch(e) {}
+}
+
+async function loadUserData() {
+  if (!currentUser) return;
+  try {
+    const { data } = await sbClient.from('user_data').select('*').eq('user_id', currentUser.id).single();
+    if (!data) return;
+    if ((data.coins||0) > coinCount) {
+      coinCount = data.coins;
+      localStorage.setItem('sq_coins', coinCount);
+      document.getElementById('coins').textContent = coinCount.toLocaleString();
+    }
+    if ((data.level||1) > playerLevel) {
+      playerLevel = data.level;
+      playerXP = data.xp||0;
+      localStorage.setItem('sq_level', playerLevel);
+      localStorage.setItem('sq_xp', playerXP);
+      updateLevelDisplay();
+    }
+    if (data.player_name && !playerName) {
+      playerName = data.player_name;
+      localStorage.setItem('sq_name', playerName);
+    }
+    if (data.school && !playerSchool) {
+      playerSchool = data.school;
+      localStorage.setItem('sq_school', playerSchool);
+    }
+    if (data.collection && typeof data.collection === 'object') {
+      for (const [k, v] of Object.entries(data.collection)) {
+        const shape = SHAPES.find(s => s.id === v.shapeId);
+        const effect = EFFECTS.find(e => e.id === v.effectId);
+        const size = SIZE_MODS.find(s => s.id === (v.sizeId||null)) || SIZE_MODS[0];
+        if (!shape || !effect) continue;
+        if (collection[k]) {
+          collection[k].count = Math.max(collection[k].count, v.count||1);
+          collection[k].bestPts = Math.max(collection[k].bestPts, v.bestPts||0);
+        } else {
+          collection[k] = { shape, effect, size, count:v.count||1, bestPts:v.bestPts||0, score:v.score||rarityScore(v.shapeId,v.effectId,v.sizeId||null) };
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+sbClient.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    if (!playerName) {
+      const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+      if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+    }
+    await loadUserData();
+    updateAuthUI();
+  } else {
+    currentUser = null;
+    updateAuthUI();
+  }
+});
+
+function updateAuthUI() {
+  const btn = document.getElementById('authNavBtn');
+  if (currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || '';
+    btn.textContent = (name[0]||'?').toUpperCase();
+    btn.title = name || currentUser.email;
+    btn.classList.add('signed-in');
+  } else {
+    btn.textContent = 'Sign In';
+    btn.title = '';
+    btn.classList.remove('signed-in');
+  }
+}
+
+function openAuthModal() {
+  const modal = document.getElementById('authModal');
+  const signedIn = document.getElementById('authSignedIn');
+  const signedOut = document.getElementById('authSignedOut');
+  if (currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '';
+    document.getElementById('authUserName').textContent = name;
+    document.getElementById('authUserEmail').textContent = currentUser.email || '';
+    signedIn.style.display = '';
+    signedOut.style.display = 'none';
+  } else {
+    signedIn.style.display = 'none';
+    signedOut.style.display = '';
+    setAuthMode('signin');
+  }
+  modal.classList.add('active');
+}
+
+function closeAuthModal(e) {
+  if (e && e.target !== document.getElementById('authModal') && !e.target.classList.contains('auth-close')) return;
+  document.getElementById('authModal').classList.remove('active');
+}
+
+let authMode = 'signin';
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('authModeTitle').textContent = mode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('authSubmitBtn').textContent = mode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('authModeSwitchTxt').innerHTML = mode === 'signin'
+    ? `Don't have an account? <a href="#" onclick="setAuthMode('signup');return false">Sign up</a>`
+    : `Have an account? <a href="#" onclick="setAuthMode('signin');return false">Sign in</a>`;
+  clearAuthError();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg; el.style.display = '';
+}
+function clearAuthError() {
+  const el = document.getElementById('authError');
+  el.textContent = ''; el.style.display = 'none';
+}
+
+async function signInWithGoogle() {
+  try {
+    const { error } = await sbClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href.split('#')[0] }
+    });
+    if (error) showAuthError(error.message);
+  } catch(e) { showAuthError('Google sign-in unavailable. Try email instead.'); }
+}
+
+async function submitAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true; btn.textContent = '...';
+  clearAuthError();
+  try {
+    if (authMode === 'signin') {
+      const { error } = await sbClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      document.getElementById('authModal').classList.remove('active');
+    } else {
+      const { error } = await sbClient.auth.signUp({
+        email, password, options: { emailRedirectTo: window.location.href.split('#')[0] }
+      });
+      if (error) throw error;
+      showAuthError('Account created! Check your email for a confirmation link.');
+    }
+  } catch(e) {
+    showAuthError(e.message || 'Authentication failed. Please try again.');
+  }
+  btn.disabled = false;
+  btn.textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+}
+
+async function doSignOut() {
+  await sbClient.auth.signOut();
+  document.getElementById('authModal').classList.remove('active');
+}
+
 // ── init
 coinCount=parseInt(localStorage.getItem('sq_coins')||'4820');
 document.getElementById('coins').textContent=coinCount.toLocaleString();
 updateLevelDisplay();
+updateAuthUI();
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'));
 </script>
 </body>
