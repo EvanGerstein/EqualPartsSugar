@@ -299,7 +299,7 @@ nav a:hover,nav a.on { color:var(--ink); }
   <div class="shape-label" id="shapeLabel">
     <div class="shape-rarity" id="rarityTag">✦ Epic</div>
     <div class="shape-name">
-      <span class="effect-word" id="effectWord" style="color:#a888c0">Glow</span>
+      <span class="effect-word" id="sizeWord" style="display:none"></span><span class="effect-word" id="effectWord" style="color:#a888c0">Glow</span>
       <span class="shape-word" id="shapeWord"> Sphere</span>
     </div>
     <div class="shape-pts" id="shapePts">+320 pts · +240 xp</div>
@@ -368,15 +368,24 @@ const EFFECTS = [
   { id:'Celestial', label:'Celestial', color:'#c0d8ff', fill:'#e8f0ff', vfx:6, w:1   },
 ];
 
-// Combined score → 1/100 threshold ≈ score 130+
-function rarityScore(shapeId, effectId) {
+// Size modifiers — rolled as a third independent dimension
+const SIZE_MODS = [
+  { id:null,    label:null,    scale:1.0,  color:'var(--ink)', w:320 },
+  { id:'Small', label:'Small', scale:0.68, color:'#8090a8',    w:18  },
+  { id:'Big',   label:'Big',   scale:1.35, color:'#9090c0',    w:10  },
+  { id:'Giant', label:'Giant', scale:1.65, color:'#a870d0',    w:5   },
+  { id:'Huge',  label:'Huge',  scale:1.95, color:'#d040e0',    w:2   },
+];
+
+// Combined score — factors shape × effect × size probability
+function rarityScore(shapeId, effectId, sizeId=null) {
   const s=SHAPES.find(x=>x.id===shapeId);
   const e=EFFECTS.find(x=>x.id===effectId);
+  const sz=SIZE_MODS.find(x=>x.id===sizeId)||SIZE_MODS[0];
   const totalS=SHAPES.reduce((a,x)=>a+x.w,0);
   const totalE=EFFECTS.reduce((a,x)=>a+x.w,0);
-  // probability of this exact roll (lower = rarer)
-  const p=(s.w/totalS)*(e.w/totalE);
-  // score = -log2(p), so higher = rarer. plain sphere ≈7, starburst+Cosmic ≈16
+  const totalSZ=SIZE_MODS.reduce((a,x)=>a+x.w,0);
+  const p=(s.w/totalS)*(e.w/totalE)*(sz.w/totalSZ);
   return -Math.log2(p);
 }
 function rarityLabel(score) {
@@ -387,12 +396,14 @@ function rarityLabel(score) {
   if(score>=10.0) return '· Uncommon';
   return '— Common';
 }
-function rarityOdds(shapeId, effectId) {
+function rarityOdds(shapeId, effectId, sizeId=null) {
   const s=SHAPES.find(x=>x.id===shapeId);
   const e=EFFECTS.find(x=>x.id===effectId);
+  const sz=SIZE_MODS.find(x=>x.id===sizeId)||SIZE_MODS[0];
   const totalS=SHAPES.reduce((a,x)=>a+x.w,0);
   const totalE=EFFECTS.reduce((a,x)=>a+x.w,0);
-  const p=(s.w/totalS)*(e.w/totalE);
+  const totalSZ=SIZE_MODS.reduce((a,x)=>a+x.w,0);
+  const p=(s.w/totalS)*(e.w/totalE)*(sz.w/totalSZ);
   const n=Math.round(1/p);
   if(n>=10000) return `1/${(n/1000).toFixed(0)}k`;
   if(n>=1000)  return `1/${(n/1000).toFixed(1)}k`;
@@ -401,8 +412,8 @@ function rarityOdds(shapeId, effectId) {
 function pts(score) { return Math.round(5 + score*60 + Math.random()*40); }
 function isCutscene(effect) { return effect.vfx>=6; }
 // Also trigger cutscene for inferno/spectral on very rare shapes
-function needsCutscene(shape, effect) {
-  const score=rarityScore(shape.id,effect.id);
+function needsCutscene(shape, effect, size=null) {
+  const score=rarityScore(shape.id,effect.id,size?size.id:null);
   return effect.vfx>=6 || (effect.vfx>=4 && score>=16.5);
 }
 
@@ -439,7 +450,7 @@ function shapeGeometry(shapeId, fill, filter='') {
   return `<polygon points="${polyPts(70,70,60,s.sides)}" fill="${fill}" ${filter}/>`;
 }
 
-function buildSVG(shapeId, effect) {
+function buildSVG(shapeId, effect, sizeScale=1.0) {
   const ef=effect.id;
   let defs='<defs>';
   let behind='',over='';
@@ -726,7 +737,9 @@ function buildSVG(shapeId, effect) {
     over+=`<circle cx="70" cy="70" r="9" fill="#ffffff" opacity=".85"><animate attributeName="opacity" values=".85;.4;.85" dur="2s" repeatCount="indefinite"/></circle>`;
   }
 
-  return defs+behind+mainEl+over;
+  const sc=sizeScale!==1.0?`<g transform="translate(70,70) scale(${sizeScale}) translate(-70,-70)">`:'';
+  const scClose=sizeScale!==1.0?'</g>':'';
+  return defs+sc+behind+mainEl+over+scClose;
 }
 
 // ═══════════════════════════════════════════════
@@ -827,7 +840,7 @@ function playSound(vfx, effectId){
 // ROLL
 // ═══════════════════════════════════════════════
 function wPick(arr){const t=arr.reduce((s,x)=>s+x.w,0);let r=Math.random()*t;for(const x of arr){r-=x.w;if(r<=0)return x;}return arr[0];}
-function roll(){return{shape:wPick(SHAPES),effect:wPick(EFFECTS)};}
+function roll(){return{shape:wPick(SHAPES),effect:wPick(EFFECTS),size:wPick(SIZE_MODS)};}
 
 // ═══════════════════════════════════════════════
 // VFX ENGINE
@@ -910,11 +923,12 @@ let csRaf=null;
 function resizeCS(){csCanvas.width=innerWidth;csCanvas.height=innerHeight;}
 resizeCS();window.addEventListener('resize',resizeCS);
 
-function runCutscene(shape, effect, onDone){
+function runCutscene(shape, effect, size, onDone){
   csEl.classList.add('active');
   document.getElementById('csTitle').style.color=effect.color;
-  document.getElementById('csTitle').textContent=effect.label?`${effect.label} ${shape.label}`:shape.label;
-  document.getElementById('csSub').textContent=rarityLabel(rarityScore(shape.id,effect.id));
+  const sizePrefix=size&&size.id?size.label+' ':'';
+  document.getElementById('csTitle').textContent=effect.label?`${sizePrefix}${effect.label} ${shape.label}`:`${sizePrefix}${shape.label}`;
+  document.getElementById('csSub').textContent=rarityLabel(rarityScore(shape.id,effect.id,size?size.id:null));
   document.getElementById('csSub').style.color=effect.color;
 
   const W=innerWidth,H=innerHeight;
@@ -1039,9 +1053,10 @@ function updateCastBtn(locked){
   lbl.textContent=locked?'...':'Roll';
 }
 
-function renderShape(shape,effect){
+function renderShape(shape,effect,size=null){
+  const sizeScale=size?size.scale:1.0;
   const svg=document.getElementById('shapeSvg');
-  svg.innerHTML=buildSVG(shape.id,effect);
+  svg.innerHTML=buildSVG(shape.id,effect,sizeScale);
   svg.classList.remove('popped');void svg.offsetWidth;svg.classList.add('popped');
 
   const bg=document.getElementById('bgGlow');
@@ -1056,9 +1071,18 @@ function renderShape(shape,effect){
     bg.style.opacity='0';bg.style.animation='none';
   }
 
-  const score=rarityScore(shape.id,effect.id);
+  const score=rarityScore(shape.id,effect.id,size?size.id:null);
   const ptsVal=pts(score);
   document.getElementById('rarityTag').textContent=rarityLabel(score);
+
+  const sizeEl=document.getElementById('sizeWord');
+  if(size&&size.id){
+    sizeEl.textContent=size.label+' ';
+    sizeEl.style.color=size.color;
+    sizeEl.style.display='';
+  } else {
+    sizeEl.style.display='none';
+  }
   document.getElementById('effectWord').style.color=effect.color;
   if(effect.id){
     document.getElementById('effectWord').textContent=effect.label;
@@ -1075,7 +1099,7 @@ function renderShape(shape,effect){
   document.getElementById('coins').textContent=coinCount.toLocaleString();
   localStorage.setItem('sq_coins', coinCount);
   addXP(Math.round(ptsVal*.75));
-  recordRoll(shape, effect, ptsVal);
+  recordRoll(shape,effect,ptsVal,size);
   spawnVFX(effect.vfx,effect.color);
 }
 
@@ -1083,17 +1107,17 @@ let casting=false;
 function docast(){
   if(castLocked||casting) return;
   casting=true;
-  const{shape,effect}=roll();
+  const{shape,effect,size}=roll();
   const isCommon=effect.vfx<=1;
   const doRender=()=>{
-    if(needsCutscene(shape,effect)){
+    if(needsCutscene(shape,effect,size)){
       playSound(effect.vfx,effect.id);
-      runCutscene(shape,effect,()=>{
-        renderShape(shape,effect);
+      runCutscene(shape,effect,size,()=>{
+        renderShape(shape,effect,size);
         casting=false;
       });
     } else {
-      renderShape(shape,effect);
+      renderShape(shape,effect,size);
       playSound(effect.vfx,effect.id);
       casting=false;
     }
@@ -1166,8 +1190,10 @@ function getRarestShape() {
     Plague:'#507030',Rune:'#4020a0',Mirage:'#d4b870',Aqua:'#1898c0',
     Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0'};
   const fill = top.effect.id && fillMap[top.effect.id] ? fillMap[top.effect.id] : top.effect.fill;
+  const sc = top.size ? top.size.scale : 1.0;
   const geo = shapeGeometry(top.shape.id, fill, '');
-  const svgStr = `<svg width="28" height="28" viewBox="-20 -20 180 180" style="overflow:visible">${geo}</svg>`;
+  const geoWrapped = sc!==1.0 ? `<g transform="translate(70,70) scale(${sc}) translate(-70,-70)">${geo}</g>` : geo;
+  const svgStr = `<svg width="28" height="28" viewBox="-20 -20 180 180" style="overflow:visible">${geoWrapped}</svg>`;
   return { svgStr, rarityLabel: rarityLabel(top.score), effectColor: top.effect.color };
 }
 
@@ -1423,13 +1449,15 @@ function updateLevelDisplay() {
 // key: "shapeId|effectId"  value: { shape, effect, count, bestPts, score }
 const collection = {};
 
-function recordRoll(shape, effect, ptsVal) {
-  const key = `${shape.id}|${effect.id||'none'}`;
+function recordRoll(shape, effect, ptsVal, size=null) {
+  const sid = size?size.id||'none':'none';
+  const key = `${shape.id}|${effect.id||'none'}|${sid}`;
   if(collection[key]) {
     collection[key].count++;
     collection[key].bestPts = Math.max(collection[key].bestPts, ptsVal);
   } else {
-    collection[key] = { shape, effect, count:1, bestPts:ptsVal, score:rarityScore(shape.id,effect.id) };
+    const sz = size||SIZE_MODS[0];
+    collection[key] = { shape, effect, size:sz, count:1, bestPts:ptsVal, score:rarityScore(shape.id,effect.id,sz.id) };
   }
 }
 
@@ -1439,10 +1467,11 @@ function recordRoll(shape, effect, ptsVal) {
 const RARITY_ORDER = ['✧ Mythic','★ Legendary','✦ Epic','◈ Rare','· Uncommon','— Common'];
 
 function buildCatCard(entry) {
-  const { shape, effect, count, score } = entry;
+  const { shape, effect, size, count, score } = entry;
   const card = document.createElement('div');
   card.className = 'cat-card';
-  card.title = effect.id ? `${effect.label} ${shape.label}` : shape.label;
+  const sizePrefix = size&&size.id ? size.label+' ' : '';
+  card.title = effect.id ? `${sizePrefix}${effect.label} ${shape.label}` : `${sizePrefix}${shape.label}`;
 
   // mini SVG — simplified, no animations, just shape + fill
   const miniSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -1450,7 +1479,6 @@ function buildCatCard(entry) {
   miniSvg.setAttribute('viewBox','-20 -20 180 180');
   miniSvg.style.overflow='visible';
 
-  // Build a lightweight mini version (no filters/animations for perf)
   const fillMap={ Void:'#2a1040',Radiant:'#e0b840',Inferno:'#c03010',Spectral:'#c060f0',
     Prism:'#b8ccec',Glow:'#80c8a8',Frozen:'#90d0f0',Toxic:'#80d030',
     Eclipse:'#201830',Gilded:'#d4b030',Cosmic:'#2030a0',
@@ -1458,7 +1486,11 @@ function buildCatCard(entry) {
     Plague:'#507030',Rune:'#4020a0',Mirage:'#d4b870',Aqua:'#1898c0',
     Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0' };
   const fill = effect.id && fillMap[effect.id] ? fillMap[effect.id] : effect.fill;
-  miniSvg.innerHTML = shapeGeometry(shape.id, fill, '');
+  const sc = size ? size.scale : 1.0;
+  const geo = shapeGeometry(shape.id, fill, '');
+  miniSvg.innerHTML = sc!==1.0
+    ? `<g transform="translate(70,70) scale(${sc}) translate(-70,-70)">${geo}</g>`
+    : geo;
   card.appendChild(miniSvg);
 
   if(count > 1) {
@@ -1516,26 +1548,27 @@ function renderCatalogue() {
 // DETAIL MODAL
 // ═══════════════════════════════════════════════
 function openDetail(entry) {
-  const { shape, effect, count, bestPts, score } = entry;
+  const { shape, effect, size, count, bestPts, score } = entry;
   document.getElementById('detailRarity').textContent = rarityLabel(score);
   document.getElementById('detailRarity').style.color = effect.color;
 
-  // render full SVG with effects
   const svg = document.getElementById('detailSvg');
-  svg.innerHTML = buildSVG(shape.id, effect);
+  svg.innerHTML = buildSVG(shape.id, effect, size?size.scale:1.0);
 
+  const sizePrefix = size&&size.id ? size.label+' ' : '';
   if(effect.id) {
-    document.getElementById('detailEffect').textContent = effect.label;
+    document.getElementById('detailEffect').textContent = sizePrefix+effect.label;
     document.getElementById('detailEffect').style.color = effect.color;
     document.getElementById('detailShape').textContent = ' ' + shape.label;
   } else {
-    document.getElementById('detailEffect').textContent = '';
-    document.getElementById('detailShape').textContent = shape.label;
+    document.getElementById('detailEffect').textContent = sizePrefix.trim();
+    document.getElementById('detailEffect').style.color = size&&size.id ? size.color : effect.color;
+    document.getElementById('detailShape').textContent = sizePrefix ? ' '+shape.label : shape.label;
   }
 
   document.getElementById('detailPts').textContent = bestPts.toLocaleString();
   document.getElementById('detailCount').textContent = count;
-  document.getElementById('detailOdds').textContent = rarityOdds(shape.id, effect.id);
+  document.getElementById('detailOdds').textContent = rarityOdds(shape.id, effect.id, size?size.id:null);
 
   document.getElementById('detail').classList.add('active');
 }
