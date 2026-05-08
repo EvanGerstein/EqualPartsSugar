@@ -923,18 +923,33 @@ function leaveSchool() {
 }
 
 // ═══════════════════════════════════════════════
-// PERSISTENT LEADERBOARD STORAGE
+// SUPABASE BACKEND
 // ═══════════════════════════════════════════════
-// Global leaderboard: key "lb:global" → [{name, school, coins, level, ts}]
-// School registry:    key "lb:schools" → [{name, memberCount, totalCoins}]
-// School boards:      key "lb:school:NAME" → [{name, coins, level, ts}]
+const SB_URL = 'https://uxprqqwqeymsynkynxoi.supabase.co';
+const SB_KEY = 'sb_publishable_zPz5kD0_u5sB0mGfyx_wcA_OWjUhbuV';
 
-async function getLBData(key) {
-  try { const r = await window.storage.get(key, true); return r ? JSON.parse(r.value) : null; }
-  catch(e) { return null; }
+async function sbGet(table, params='') {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    return r.ok ? r.json() : [];
+  } catch(e) { return []; }
 }
-async function setLBData(key, val) {
-  try { await window.storage.set(key, JSON.stringify(val), true); } catch(e) {}
+
+async function sbUpsert(table, data) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {}
 }
 
 function getRarestShape() {
@@ -953,51 +968,36 @@ function getRarestShape() {
 async function submitScore() {
   if(!playerName) return;
   const rarest = getRarestShape();
-  const entry = {
+  await sbUpsert('players', {
     name: playerName,
     school: playerSchool||'',
     coins: coinCount,
     level: playerLevel,
     ts: Date.now(),
-    rarestSvg: rarest ? rarest.svgStr : null,
-    rarestLabel: rarest ? rarest.rarityLabel : null,
-    rarestColor: rarest ? rarest.effectColor : null,
-  };
-
-  // update global lb
-  let global = await getLBData('lb:global') || [];
-  const gi = global.findIndex(x=>x.name===playerName);
-  if(gi>=0) { if(coinCount > global[gi].coins) { global[gi]=entry; } }
-  else global.push(entry);
-  global.sort((a,b)=>b.coins-a.coins);
-  global = global.slice(0,100);
-  await setLBData('lb:global', global);
-
-  // update school lb
+    rarest_svg: rarest ? rarest.svgStr : null,
+    rarest_label: rarest ? rarest.rarityLabel : null,
+    rarest_color: rarest ? rarest.effectColor : null,
+  });
   if(playerSchool) {
-    let sboard = await getLBData('lb:school:'+playerSchool) || [];
-    const si = sboard.findIndex(x=>x.name===playerName);
-    if(si>=0) { if(coinCount > sboard[si].coins) sboard[si]=entry; }
-    else sboard.push(entry);
-    sboard.sort((a,b)=>b.coins-a.coins);
-    sboard = sboard.slice(0,100);
-    await setLBData('lb:school:'+playerSchool, sboard);
-
-    // update school registry
-    let schools = await getLBData('lb:schools') || [];
-    const sci = schools.findIndex(x=>x.name===playerSchool);
-    const totalCoins = sboard.reduce((s,x)=>s+x.coins,0);
-    if(sci>=0) { schools[sci].memberCount=sboard.length; schools[sci].totalCoins=totalCoins; }
-    else schools.push({ name:playerSchool, memberCount:sboard.length, totalCoins });
-    schools.sort((a,b)=>b.totalCoins-a.totalCoins);
-    await setLBData('lb:schools', schools);
+    await sbUpsert('school_scores', {
+      school_name: playerSchool,
+      player_name: playerName,
+      coins: coinCount,
+      level: playerLevel,
+      ts: Date.now(),
+      rarest_svg: rarest ? rarest.svgStr : null,
+      rarest_label: rarest ? rarest.rarityLabel : null,
+      rarest_color: rarest ? rarest.effectColor : null,
+    });
+    const members = await sbGet('school_scores', `school_name=eq.${encodeURIComponent(playerSchool)}&select=coins`);
+    const totalCoins = members.reduce((s,x)=>s+x.coins,0);
+    await sbUpsert('schools', { name: playerSchool, member_count: members.length, total_coins: totalCoins });
   }
 }
 
 async function searchSchools(query) {
-  const schools = await getLBData('lb:schools') || [];
-  if(!query.trim()) return schools.slice(0,10);
-  return schools.filter(s=>s.name.toLowerCase().includes(query.toLowerCase())).slice(0,10);
+  if(!query.trim()) return sbGet('schools', 'order=total_coins.desc&limit=10');
+  return sbGet('schools', `name=ilike.*${encodeURIComponent(query.trim())}*&order=total_coins.desc&limit=10`);
 }
 
 // ═══════════════════════════════════════════════
@@ -1027,7 +1027,7 @@ async function renderGlobalTab() {
     </div>`;
   }
 
-  const global = await getLBData('lb:global') || [];
+  const global = await sbGet('players', 'order=coins.desc&limit=100');
 
   html += `<div class="lb-section-label">Top Players</div>`;
   if(!global.length) {
@@ -1035,15 +1035,15 @@ async function renderGlobalTab() {
   } else {
     global.forEach((p,i) => {
       const isMe = p.name === playerName;
-      const avatarHtml = p.rarestSvg
-        ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarestSvg}</div>`
+      const avatarHtml = p.rarest_svg
+        ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarest_svg}</div>`
         : `<div class="lb-av">${initials(p.name)}</div>`;
       html += `<div class="lb-row${isMe?' me':''}">
         <div class="lb-pos ${posClass(i)}">${i+1}</div>
         ${avatarHtml}
         <div class="lb-info">
           <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
-          <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarestLabel?` · <span style="color:${p.rarestColor||'#999'}">${p.rarestLabel}</span>`:''}  </div>
+          <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
         <div class="lb-score"><span>${p.coins.toLocaleString()}</span> coins</div>
       </div>`;
@@ -1051,19 +1051,19 @@ async function renderGlobalTab() {
   }
 
   // School leaderboard preview at bottom
-  const schools = await getLBData('lb:schools') || [];
+  const schools = await sbGet('schools', 'order=total_coins.desc&limit=10');
   if(schools.length) {
     html += `<div class="lb-section-label" style="margin-top:24px">Schools</div>`;
-    schools.slice(0,10).forEach((s,i) => {
+    schools.forEach((s,i) => {
       const isMySchool = s.name === playerSchool;
       html += `<div class="lb-row${isMySchool?' me':''}">
         <div class="lb-pos ${posClass(i)}">${i+1}</div>
         <div class="lb-av" style="font-size:.8rem">🏫</div>
         <div class="lb-info">
           <div class="lb-name">${s.name}${isMySchool?' (yours)':''}</div>
-          <div class="lb-sub">${s.memberCount} player${s.memberCount!==1?'s':''}</div>
+          <div class="lb-sub">${s.member_count} player${s.member_count!==1?'s':''}</div>
         </div>
-        <div class="lb-score"><span>${s.totalCoins.toLocaleString()}</span> total</div>
+        <div class="lb-score"><span>${s.total_coins.toLocaleString()}</span> total</div>
       </div>`;
     });
   }
@@ -1085,22 +1085,22 @@ async function renderSchoolTab() {
       <button class="school-leave" onclick="leaveSchool();renderSchoolTab()">Leave</button>
     </div>`;
 
-    const sboard = await getLBData('lb:school:'+playerSchool) || [];
+    const sboard = await sbGet('school_scores', `school_name=eq.${encodeURIComponent(playerSchool)}&order=coins.desc&limit=100`);
     html += `<div class="lb-section-label">${playerSchool} — Top Players</div>`;
     if(!sboard.length) {
       html += `<div class="lb-empty">No scores yet — submit yours from the Global tab!</div>`;
     } else {
       sboard.forEach((p,i) => {
-        const isMe = p.name === playerName;
-        const avatarHtml2 = p.rarestSvg
-          ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarestSvg}</div>`
-          : `<div class="lb-av">${initials(p.name)}</div>`;
+        const isMe = p.player_name === playerName;
+        const avatarHtml2 = p.rarest_svg
+          ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarest_svg}</div>`
+          : `<div class="lb-av">${initials(p.player_name)}</div>`;
         html += `<div class="lb-row${isMe?' me':''}">
           <div class="lb-pos ${posClass(i)}">${i+1}</div>
           ${avatarHtml2}
           <div class="lb-info">
-            <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
-            <div class="lb-sub">Lv ${p.level}${p.rarestLabel?` · <span style="color:${p.rarestColor||'#999'}">${p.rarestLabel}</span>`:''}</div>
+            <div class="lb-name">${p.player_name}${isMe?' (you)':''}</div>
+            <div class="lb-sub">Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}</div>
           </div>
           <div class="lb-score"><span>${p.coins.toLocaleString()}</span> coins</div>
         </div>`;
@@ -1142,7 +1142,7 @@ async function searchAndRender(q) {
       html += `<div class="school-result">
         <div>
           <div class="school-result-name">${s.name}</div>
-          <div class="school-result-meta">${s.memberCount} player${s.memberCount!==1?'s':''} · ${s.totalCoins.toLocaleString()} coins</div>
+          <div class="school-result-meta">${s.member_count} player${s.member_count!==1?'s':''} · ${s.total_coins.toLocaleString()} coins</div>
         </div>
         <button class="school-result-join ${joined?'joined':''}" onclick="joinAndRefresh('${s.name.replace(/'/g,"\\'")}')">
           ${joined?'Joined':'Join'}
@@ -1169,12 +1169,7 @@ async function joinAndRefresh(name) {
 
 async function addAndJoinSchool(name) {
   if(!name.trim() || name.trim().length < 2) return;
-  // Add to registry if not exists
-  let schools = await getLBData('lb:schools') || [];
-  if(!schools.find(s=>s.name===name.trim())) {
-    schools.push({ name:name.trim(), memberCount:0, totalCoins:0 });
-    await setLBData('lb:schools', schools);
-  }
+  await sbUpsert('schools', { name: name.trim(), member_count: 0, total_coins: 0 });
   joinSchool(name.trim());
   await renderSchoolTab();
 }
