@@ -3091,39 +3091,32 @@ async function doForceSync() {
   btn.textContent = 'Syncing…';
   msg.textContent = '';
   try {
-    // Re-read local values directly from localStorage to get true local state
-    // (in case loadUserData already overwrote in-memory values with cloud)
-    const localCoins  = parseInt(localStorage.getItem('sq_coins') || '0');
-    const localLevel  = parseInt(localStorage.getItem('sq_level') || '1');
-    const localXP     = parseInt(localStorage.getItem('sq_xp')    || '0');
-    const rawColl     = localStorage.getItem('sq_collection');
-    const localColObj = rawColl ? JSON.parse(rawColl) : {};
+    // Read straight from localStorage — avoids any closure-variable reassignment
+    const localCoins  = parseInt(localStorage.getItem('sq_coins')  || '0');
+    const localLevel  = parseInt(localStorage.getItem('sq_level')  || '1');
+    const localXP     = parseInt(localStorage.getItem('sq_xp')     || '0');
+    const localName   = localStorage.getItem('sq_name')   || playerName  || '';
+    const localSchool = localStorage.getItem('sq_school') || playerSchool || '';
+    const localColObj = JSON.parse(localStorage.getItem('sq_collection') || '{}');
     const localCollSize = Object.keys(localColObj).length;
 
     console.log('[ShapeQuest] Force sync — pushing local save: coins:', localCoins, 'level:', localLevel, 'collection:', localCollSize, 'shapes');
 
-    // Override in-memory with true local values before pushing
-    coinCount   = localCoins;
-    playerLevel = localLevel;
-    playerXP    = localXP;
-    // Rebuild collection from localStorage
-    collection  = {};
-    for (const [k, v] of Object.entries(localColObj)) {
-      const shape  = SHAPES.find(s => s.id === v.shapeId);
-      const effect = EFFECTS.find(e => e.id === v.effectId);
-      const size   = SIZE_MODS.find(s => s.id === (v.sizeId || null)) || SIZE_MODS[0];
-      if (!shape || !effect) continue;
-      collection[k] = { shape, effect, size, count:v.count, bestPts:v.bestPts, score:v.score };
-    }
+    // Push directly via sbClient — no closure variable mutation needed
+    const { error } = await sbClient.from('user_data').upsert({
+      user_id:     currentUser.id,
+      player_name: localName,
+      school:      localSchool,
+      coins:       localCoins,
+      level:       localLevel,
+      xp:          localXP,
+      collection:  localColObj,
+      ts:          Date.now()
+    });
+    if (error) throw error;
 
-    // Push local → cloud (direct overwrite, no merge)
-    await saveUserData();
-
-    document.getElementById('coins').textContent = coinCount.toLocaleString();
-    updateLevelDisplay();
-
-    console.log('[ShapeQuest] Force sync complete — saved', Object.keys(collection).length, 'shapes,', coinCount, 'coins to cloud.');
-    msg.textContent = `Saved · ${Object.keys(collection).length} shapes · ${coinCount.toLocaleString()} coins`;
+    console.log('[ShapeQuest] Force sync complete —', localCollSize, 'shapes,', localCoins, 'coins saved to cloud.');
+    msg.textContent = `Saved · ${localCollSize} shapes · ${localCoins.toLocaleString()} coins`;
     msg.style.color = '#1a7a3a';
   } catch(e) {
     console.error('[ShapeQuest] Force sync failed:', e);
