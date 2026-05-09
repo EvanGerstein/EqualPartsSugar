@@ -1855,22 +1855,30 @@ function _scLaunch(entries, title, hint) {
     stage.innerHTML = '<div class="showcase-empty">Roll Rare or better shapes to fill your showcase.</div>';
   }
 
+  // Scale shape size so all fit
+  const cnt = entries.length;
+  const sw = cnt<=8?130 : cnt<=14?108 : cnt<=22?88 : cnt<=32?72 : 60;
+  const sh = Math.round(sw*1.19);
+  const R  = sw*0.50;
+
   const W = innerWidth, H = innerHeight;
   entries.forEach(({shape, effect, size, label, rarityLbl, color}) => {
     const el = _scBuildEl(shape, effect, size, label, rarityLbl, color);
-    const w = 130, h = 155;
     stage.appendChild(el);
-    const ang = Math.random() * Math.PI * 2;
-    const sp = 1.2 + Math.random() * 1.8;
+    const ang = Math.random()*Math.PI*2, sp = 1.2+Math.random()*1.8;
     const eid = effect ? effect.id : null;
     const s = {
-      el, effectId: eid,
-      x: 40 + Math.random()*(W-w-80), y: 80 + Math.random()*(H-h-120),
-      vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp,
-      w, h, sqX:1, sqY:1,
+      el, effectId:eid,
+      x:40+Math.random()*(W-sw-80), y:80+Math.random()*(H-sh-120),
+      vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp,
+      w:sw, h:sh,
+      sqX:1, sqY:1, sqVX:0, sqVY:0,   // spring squish
+      _prevHit:new Set(), _curHit:new Set(),
+      _prevWall:0, _curWall:0,
+      _phase:Math.random()*Math.PI*2,  // for Aurora/Arcane
       dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0
     };
-    el.style.width = w+'px';
+    el.style.width = sw+'px';
     el.addEventListener('mousedown', e => { e.preventDefault(); _scDrag=s; s.dragging=true; s.dragOX=e.clientX-s.x; s.dragOY=e.clientY-s.y; s.lx=e.clientX; s.ly=e.clientY; s.pvx=0; s.pvy=0; });
     el.addEventListener('touchstart', e => { e.preventDefault(); const t=e.touches[0]; _scDrag=s; s.dragging=true; s.dragOX=t.clientX-s.x; s.dragOY=t.clientY-s.y; s.lx=t.clientX; s.ly=t.clientY; s.pvx=0; s.pvy=0; }, {passive:false});
     _scShapes.push(s);
@@ -1878,11 +1886,11 @@ function _scLaunch(entries, title, hint) {
 
   _scMoveH = e => {
     if (!_scDrag) return;
-    const cx = e.clientX ?? e.touches?.[0]?.clientX; const cy = e.clientY ?? e.touches?.[0]?.clientY;
+    const cx=e.clientX??e.touches?.[0]?.clientX, cy=e.clientY??e.touches?.[0]?.clientY;
     if (cx==null) return;
-    _scDrag.pvx = cx - _scDrag.lx; _scDrag.pvy = cy - _scDrag.ly;
-    _scDrag.lx = cx; _scDrag.ly = cy;
-    _scDrag.x = cx - _scDrag.dragOX; _scDrag.y = cy - _scDrag.dragOY;
+    _scDrag.pvx=cx-_scDrag.lx; _scDrag.pvy=cy-_scDrag.ly;
+    _scDrag.lx=cx; _scDrag.ly=cy;
+    _scDrag.x=cx-_scDrag.dragOX; _scDrag.y=cy-_scDrag.dragOY;
   };
   _scUpH = () => { if (_scDrag) { _scDrag.vx=_scDrag.pvx*0.9; _scDrag.vy=_scDrag.pvy*0.9; _scDrag.dragging=false; _scDrag=null; } };
   window.addEventListener('mousemove', _scMoveH);
@@ -1890,37 +1898,59 @@ function _scLaunch(entries, title, hint) {
   window.addEventListener('touchmove', _scMoveH, {passive:false});
   window.addEventListener('touchend', _scUpH);
 
-  document.querySelector('nav').style.opacity = '0';
-  document.querySelector('nav').style.pointerEvents = 'none';
-  document.querySelector('.wordmark').style.opacity = '0';
+  document.querySelector('nav').style.opacity='0';
+  document.querySelector('nav').style.pointerEvents='none';
+  document.querySelector('.wordmark').style.opacity='0';
 
   const sc = document.getElementById('showcase');
-  sc.classList.add('visible'); requestAnimationFrame(() => sc.classList.add('active'));
+  sc.classList.add('visible'); requestAnimationFrame(()=>sc.classList.add('active'));
   _scInitCanvas();
 
   if (_scRaf) cancelAnimationFrame(_scRaf);
   function loop() {
-    const W2=innerWidth, H2=innerHeight;
-    const N=_scShapes.length;
+    const W2=innerWidth, H2=innerHeight, N=_scShapes.length;
 
-    // ── Gravity fields (Celestial + Void) ──
+    // ── Reset per-frame hit tracking ──
     for (let i=0;i<N;i++) {
-      const cel=_scShapes[i];
-      const isCel=cel.effectId==='Celestial', isVoid=cel.effectId==='Void';
-      if (!isCel&&!isVoid) continue;
-      const cx=cel.x+cel.w/2, cy=cel.y+cel.h/2;
-      const radius=isCel?380:220, strength=isCel?0.11:0.035;
+      const s=_scShapes[i];
+      s._prevHit=s._curHit; s._curHit=new Set();
+      s._prevWall=s._curWall; s._curWall=0;
+    }
+
+    // ── Field effects (gravity, repulsion, auras) ──
+    for (let i=0;i<N;i++) {
+      const src=_scShapes[i]; if (src.dragging) continue;
+      const eid=src.effectId;
+      const isCel=eid==='Celestial', isVoid=eid==='Void', isRad=eid==='Radiant';
+      const isEcl=eid==='Eclipse', isPlag=eid==='Plague'||eid==='Toxic';
+      const isDiv=eid==='Divine', isGlow=eid==='Glow'||eid==='Aurora';
+      const isArc=eid==='Arcane';
+      if (!isCel&&!isVoid&&!isRad&&!isEcl&&!isPlag&&!isDiv&&!isGlow&&!isArc) continue;
+      const cx=src.x+src.w/2, cy=src.y+src.h/2;
       for (let j=0;j<N;j++) {
         if (i===j) continue;
         const b=_scShapes[j]; if (b.dragging) continue;
         const dx=cx-(b.x+b.w/2), dy=cy-(b.y+b.h/2);
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        if (dist<radius&&dist>65) { const f=strength*(1-(dist/radius)); b.vx+=(dx/dist)*f; b.vy+=(dy/dist)*f; }
+        const dist=Math.sqrt(dx*dx+dy*dy); if (dist<1) continue;
+        const ux=dx/dist, uy=dy/dist;
+        if (isCel &&dist<380&&dist>R*2){const f=0.11*(1-dist/380);  b.vx+=ux*f;b.vy+=uy*f;}
+        if (isVoid&&dist<220&&dist>R*2){const f=0.035*(1-dist/220); b.vx+=ux*f;b.vy+=uy*f;}
+        if (isRad &&dist<300&&dist>R*2){const f=-0.07*(1-dist/300); b.vx+=ux*f;b.vy+=uy*f;}
+        if (isEcl &&dist<190&&dist>R*2){const f=0.022*(1-dist/190); b.vx+=ux*f;b.vy+=uy*f;}
+        if (isPlag&&dist<170){b.vx*=0.9978;b.vy*=0.9978;}
+        if (isDiv &&dist<200){const spd=Math.hypot(b.vx,b.vy);if(spd<1.5){b.vx+=(Math.random()-.5)*.07;b.vy+=(Math.random()-.5)*.07;}}
+        if (isGlow&&dist<130&&dist>R*2){const f=-0.042*(1-dist/130);b.vx+=ux*f;b.vy+=uy*f;}
+        if (isArc &&dist<260&&dist>R*2){const a2=Math.random()*Math.PI*2;b.vx+=Math.cos(a2)*.014;b.vy+=Math.sin(a2)*.014;}
       }
     }
 
+    // ── Aurora sine-drift ──
+    for (let i=0;i<N;i++){
+      const s=_scShapes[i];
+      if(s.effectId==='Aurora'&&!s.dragging){s._phase+=0.045;s.vx+=Math.sin(s._phase)*.038;}
+    }
+
     // ── Shape–shape collisions ──
-    const R=66;
     for (let i=0;i<N;i++) {
       for (let j=i+1;j<N;j++) {
         const a=_scShapes[i], b=_scShapes[j];
@@ -1928,63 +1958,114 @@ function _scLaunch(entries, title, hint) {
         const ax=a.x+a.w/2, ay=a.y+a.h/2, bx=b.x+b.w/2, by=b.y+b.h/2;
         const dx=bx-ax, dy=by-ay, distSq=dx*dx+dy*dy;
         if (distSq>R*R*4||distSq<1) continue;
-        const dist=Math.sqrt(distSq);
-        if (dist>=R*2) continue;
+        const dist=Math.sqrt(distSq); if (dist>=R*2) continue;
         const nx=dx/dist, ny=dy/dist;
-        const overlap=(R*2-dist)*0.5;
-        a.x-=nx*overlap; a.y-=ny*overlap;
-        b.x+=nx*overlap; b.y+=ny*overlap;
-        const dvx=b.vx-a.vx, dvy=b.vy-a.vy;
-        const dot=dvx*nx+dvy*ny;
+        // separate
+        const ov=(R*2-dist)*.5; a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+        const dvx=b.vx-a.vx, dvy=b.vy-a.vy, dot=dvx*nx+dvy*ny;
         if (dot>0) continue;
         const ae=a.effectId, be=b.effectId;
         const spx=(ax+bx)/2, spy=(ay+by)/2;
+        const isNew=!a._prevHit.has(j);
+        a._curHit.add(j); b._curHit.add(i);
 
-        if (ae==='Abyssal'||be==='Abyssal') {
-          if (ae==='Abyssal') { a.sqX=1+Math.abs(ny)*.42-Math.abs(nx)*.32; a.sqY=1+Math.abs(nx)*.42-Math.abs(ny)*.32; }
-          if (be==='Abyssal') { b.sqX=1+Math.abs(ny)*.42-Math.abs(nx)*.32; b.sqY=1+Math.abs(nx)*.42-Math.abs(ny)*.32; }
-          const mvx=(a.vx+b.vx)*.5, mvy=(a.vy+b.vy)*.5;
-          a.vx=a.vx*.35+mvx*.65; a.vy=a.vy*.35+mvy*.65;
-          b.vx=b.vx*.35+mvx*.65; b.vy=b.vy*.35+mvy*.65;
-          _scSpawnVFX(spx, spy, 'Abyssal'); _scPlayImpact('Abyssal', false);
+        // ── Spectral: phase-through ──
+        if ((ae==='Spectral'||be==='Spectral')&&Math.random()<0.28) {
+          if(isNew){_scSpawnVFX(spx,spy,'Spectral');_scPlayImpact('Spectral',false);}
           continue;
         }
 
+        // ── Rune: teleport on first contact ──
+        if (isNew&&(ae==='Rune'||be==='Rune')) {
+          const rs=ae==='Rune'?a:b;
+          rs.x=80+Math.random()*(W2-160); rs.y=100+Math.random()*(H2-200);
+          rs.vx=(Math.random()-.5)*5; rs.vy=(Math.random()-.5)*5;
+          _scSpawnVFX(spx,spy,'Rune'); _scPlayImpact('Rune',false);
+          continue;
+        }
+
+        // ── Abyssal: gooey inelastic ──
+        if (ae==='Abyssal'||be==='Abyssal') {
+          const str=0.52;
+          if(ae==='Abyssal'){a.sqVX+=str*(Math.abs(ny)-Math.abs(nx));a.sqVY+=str*(Math.abs(nx)-Math.abs(ny));}
+          if(be==='Abyssal'){b.sqVX+=str*(Math.abs(ny)-Math.abs(nx));b.sqVY+=str*(Math.abs(nx)-Math.abs(ny));}
+          const mvx=(a.vx+b.vx)*.5, mvy=(a.vy+b.vy)*.5;
+          a.vx=a.vx*.32+mvx*.68; a.vy=a.vy*.32+mvy*.68;
+          b.vx=b.vx*.32+mvx*.68; b.vy=b.vy*.32+mvy*.68;
+          if(isNew){_scSpawnVFX(spx,spy,'Abyssal');_scPlayImpact('Abyssal',false);}
+          continue;
+        }
+
+        // ── Gilded/Stone/Rust: variable mass ──
+        const massA = ae==='Gilded'?4 : ae==='Stone'||ae==='Rust'?2 : 1;
+        const massB = be==='Gilded'?4 : be==='Stone'||be==='Rust'?2 : 1;
+
         let rest=0.82;
-        if      (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix') { rest=1.35; }
-        else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal')   { a.vx*=.65;a.vy*=.65;b.vx*=.65;b.vy*=.65; rest=0.6; }
+        if      (ae==='Aqua'||be==='Aqua')                                        { rest=0.94; }
+        else if (ae==='Shadow'||be==='Shadow')                                     { rest=0.42; }
+        else if (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix')   { rest=1.35; }
+        else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal')     { a.vx*=.65;a.vy*=.65;b.vx*=.65;b.vy*=.65; rest=0.6; }
         else if (ae==='Storm'||be==='Storm')                                       { a.vx+=(Math.random()-.5)*2.5;a.vy+=(Math.random()-.5)*2.5;b.vx+=(Math.random()-.5)*2.5;b.vy+=(Math.random()-.5)*2.5; rest=1.05; }
-        else if (ae==='Celestial'||be==='Celestial')                              { rest=0.55; }
+        else if (ae==='Celestial'||be==='Celestial')                               { rest=0.55; }
+        else if (ae==='Prism'||be==='Prism') {
+          // scatter into 3 directions
+          const a2=Math.atan2(dvy,dvx), spread=Math.PI/3;
+          [-spread,0,spread].forEach(off=>{ a.vx-=Math.cos(a2+off)*.6; a.vy-=Math.sin(a2+off)*.6; b.vx+=Math.cos(a2+off)*.6; b.vy+=Math.sin(a2+off)*.6; });
+          rest=0.7;
+        }
+        else if (ae==='Ember'||be==='Ember') { rest=0.88; }
+        else if (ae==='Mirage'||be==='Mirage') { rest=0.78; }
 
-        const j2=-(1+rest)*dot*.5;
-        a.vx-=j2*nx; a.vy-=j2*ny;
-        b.vx+=j2*nx; b.vy+=j2*ny;
+        const invM = 1/massA+1/massB;
+        const j2 = -(1+rest)*dot/invM;
+        a.vx-=(j2/massA)*nx; a.vy-=(j2/massA)*ny;
+        b.vx+=(j2/massB)*nx; b.vy+=(j2/massB)*ny;
 
-        // mild squish on both
-        a.sqX=1+Math.abs(ny)*.22-Math.abs(nx)*.18; a.sqY=1+Math.abs(nx)*.22-Math.abs(ny)*.18;
-        b.sqX=1+Math.abs(ny)*.22-Math.abs(nx)*.18; b.sqY=1+Math.abs(nx)*.22-Math.abs(ny)*.18;
+        // Shadow drains speed from the other shape
+        if (ae==='Shadow'||be==='Shadow') {
+          const other=ae==='Shadow'?b:a;
+          other.vx*=0.75; other.vy*=0.75;
+        }
+
+        // squish impulse (spring, direction-aware)
+        const sqStr = ae==='Gilded'||be==='Gilded' ? 0.35 : 0.20;
+        const sqNX=Math.abs(ny)-Math.abs(nx), sqNY=Math.abs(nx)-Math.abs(ny);
+        a.sqVX+=sqStr*sqNX; a.sqVY+=sqStr*sqNY;
+        b.sqVX+=sqStr*sqNX; b.sqVY+=sqStr*sqNY;
 
         const maxSpd=9;
-        const asp=Math.hypot(a.vx,a.vy); if(asp>maxSpd){a.vx=a.vx/asp*maxSpd;a.vy=a.vy/asp*maxSpd;}
-        const bsp=Math.hypot(b.vx,b.vy); if(bsp>maxSpd){b.vx=b.vx/bsp*maxSpd;b.vy=b.vy/bsp*maxSpd;}
+        const asp=Math.hypot(a.vx,a.vy);if(asp>maxSpd){a.vx=a.vx/asp*maxSpd;a.vy=a.vy/asp*maxSpd;}
+        const bsp=Math.hypot(b.vx,b.vy);if(bsp>maxSpd){b.vx=b.vx/bsp*maxSpd;b.vy=b.vy/bsp*maxSpd;}
 
-        _scSpawnVFX(spx, spy, ae||be); _scPlayImpact(ae||be, false);
+        if(isNew){_scSpawnVFX(spx,spy,ae||be);_scPlayImpact(ae||be,false);}
       }
     }
 
-    // ── Integrate, wall bounce, squish spring ──
+    // ── Integrate + wall bounce ──
     for (const s of _scShapes) {
-      if (s.dragging) { s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px'; s.el.style.transform=''; continue; }
+      if (s.dragging){s.el.style.left=s.x+'px';s.el.style.top=s.y+'px';s.el.style.transform='';continue;}
       s.x+=s.vx; s.y+=s.vy;
       const cx=s.x+s.w/2, cy=s.y+s.h/2;
-      if (s.x<0)       { const spd=Math.abs(s.vx); s.x=0;       s.vx=spd*.88; if(spd>1.2){s.sqX=.80;s.sqY=1.22;_scSpawnVFX(14,cy,s.effectId);_scPlayImpact(s.effectId,true);} }
-      if (s.x+s.w>W2)  { const spd=Math.abs(s.vx); s.x=W2-s.w; s.vx=-spd*.88; if(spd>1.2){s.sqX=.80;s.sqY=1.22;_scSpawnVFX(W2-14,cy,s.effectId);_scPlayImpact(s.effectId,true);} }
-      if (s.y<70)      { const spd=Math.abs(s.vy); s.y=70;      s.vy=spd*.88; if(spd>1.2){s.sqX=1.22;s.sqY=.80;_scSpawnVFX(cx,82,s.effectId);_scPlayImpact(s.effectId,true);} }
-      if (s.y+s.h>H2)  { const spd=Math.abs(s.vy); s.y=H2-s.h; s.vy=-spd*.88; if(spd>1.2){s.sqX=1.22;s.sqY=.80;_scSpawnVFX(cx,H2-14,s.effectId);_scPlayImpact(s.effectId,true);} }
+      const wCoef = s.effectId==='Aqua'?0.94 : s.effectId==='Abyssal'?0.72 : 0.88;
+      const sqW=0.42, sqH=0.32;
+      if(s.x<0){       const spd=Math.abs(s.vx);s.x=0;s.vx=spd*wCoef; if(spd>1.0&&!(s._prevWall&1)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(14,cy,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=1;}
+      if(s.x+s.w>W2){  const spd=Math.abs(s.vx);s.x=W2-s.w;s.vx=-spd*wCoef;if(spd>1.0&&!(s._prevWall&2)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(W2-14,cy,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=2;}
+      if(s.y<70){      const spd=Math.abs(s.vy);s.y=70;s.vy=spd*wCoef; if(spd>1.0&&!(s._prevWall&4)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx,82,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=4;}
+      if(s.y+s.h>H2){  const spd=Math.abs(s.vy);s.y=H2-s.h;s.vy=-spd*wCoef;if(spd>1.0&&!(s._prevWall&8)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx,H2-14,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=8;}
       s.vx*=.9995; s.vy*=.9995;
-      s.sqX+=(1-s.sqX)*.14; s.sqY+=(1-s.sqY)*.14;
+
+      // ── Spring squish ──
+      const k=s.effectId==='Abyssal'?0.055 : s.effectId==='Gilded'||s.effectId==='Stone'?0.28 : 0.20;
+      const d=s.effectId==='Abyssal'?0.82  : 0.68;
+      s.sqVX+=(1-s.sqX)*k; s.sqVX*=d; s.sqX+=s.sqVX;
+      s.sqVY+=(1-s.sqY)*k; s.sqVY*=d; s.sqY+=s.sqVY;
+
+      // clamp to avoid explosions
+      s.sqX=Math.max(0.3,Math.min(2.2,s.sqX));
+      s.sqY=Math.max(0.3,Math.min(2.2,s.sqY));
+
       s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
-      const needsq=Math.abs(s.sqX-1)>.005||Math.abs(s.sqY-1)>.005;
+      const needsq=Math.abs(s.sqX-1)>.004||Math.abs(s.sqY-1)>.004;
       s.el.style.transform=needsq?`scale(${s.sqX.toFixed(3)},${s.sqY.toFixed(3)})`:'';
     }
 
@@ -1992,25 +2073,23 @@ function _scLaunch(entries, title, hint) {
     if (_scCtx) {
       _scCtx.clearRect(0,0,_scCanvas.width,_scCanvas.height);
       _scParticles = _scParticles.filter(p => {
-        p.life -= p.decay;
-        if (p.life<=0) return false;
-        _scCtx.globalAlpha = Math.min(1, p.life*1.4);
+        p.life-=p.decay; if(p.life<=0) return false;
+        _scCtx.globalAlpha=Math.min(1,p.life*1.4);
         if (p.isRing) {
-          p.ringR += (p.maxRingR-p.ringR)*.18;
-          _scCtx.beginPath(); _scCtx.arc(p.x,p.y,p.ringR,0,Math.PI*2);
-          _scCtx.strokeStyle=p.color; _scCtx.lineWidth=1.5; _scCtx.stroke();
+          p.ringR+=(p.maxRingR-p.ringR)*.18;
+          _scCtx.beginPath();_scCtx.arc(p.x,p.y,p.ringR,0,Math.PI*2);
+          _scCtx.strokeStyle=p.color;_scCtx.lineWidth=1.5;_scCtx.stroke();
         } else {
-          p.x+=p.vx; p.y+=p.vy;
-          p.vx*=.91; p.vy*=.91; p.vy+=p.grav||.05;
-          _scCtx.beginPath(); _scCtx.arc(p.x,p.y,Math.max(.5,p.r*p.life),0,Math.PI*2);
-          _scCtx.fillStyle=p.color; _scCtx.fill();
+          p.x+=p.vx;p.y+=p.vy;p.vx*=.91;p.vy*=.91;p.vy+=p.grav||.05;
+          _scCtx.beginPath();_scCtx.arc(p.x,p.y,Math.max(.5,p.r*p.life),0,Math.PI*2);
+          _scCtx.fillStyle=p.color;_scCtx.fill();
         }
         return true;
       });
       _scCtx.globalAlpha=1;
     }
 
-    _scRaf = requestAnimationFrame(loop);
+    _scRaf=requestAnimationFrame(loop);
   }
   loop();
 }
@@ -2030,7 +2109,7 @@ function closeShowcase() {
 }
 
 function openMyShowcase() {
-  const rare = Object.values(collection).filter(e => e.score >= 11.5).sort((a,b)=>b.score-a.score).slice(0,18);
+  const rare = Object.values(collection).filter(e => e.score >= 11.5).sort((a,b)=>b.score-a.score).slice(0,50);
   const entries = rare.map(e => {
     const sizeP = e.size&&e.size.id ? e.size.label+' ' : '';
     const lbl = e.effect.id ? sizeP+e.effect.label+' '+e.shape.label : sizeP+e.shape.label;
