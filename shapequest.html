@@ -1452,7 +1452,7 @@ async function renderGlobalTab() {
           <div class="lb-sub">${s.member_count} player${s.member_count!==1?'s':''}</div>
         </div>
         <div class="lb-score">
-          ${currentUser?.email==='evan.h.gerstein@gmail.com'?`<button class="sc-player-btn" style="background:#c03030;color:#fff;border-color:#c03030" onclick="event.stopPropagation();deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
+          ${_isAdmin()?`<button class="sc-player-btn" style="background:#c03030;color:#fff;border-color:#c03030" onclick="event.stopPropagation();deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
           <span>${s.total_coins.toLocaleString()}</span> total
         </div>
       </div>`;
@@ -1536,7 +1536,7 @@ async function searchAndRender(q) {
           <div class="school-result-meta">${s.member_count} player${s.member_count!==1?'s':''} · ${s.total_coins.toLocaleString()} coins</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
-          ${currentUser?.email==='evan.h.gerstein@gmail.com'?`<button class="school-result-join" style="background:#c03030;color:#fff;border-color:#c03030" onclick="deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
+          ${_isAdmin()?`<button class="school-result-join" style="background:#c03030;color:#fff;border-color:#c03030" onclick="deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
           <button class="school-result-join ${joined?'joined':''}" onclick="joinAndRefresh('${s.name.replace(/'/g,"\\'")}')">
             ${joined?'Joined':'Join'}
           </button>
@@ -1583,8 +1583,10 @@ async function deleteSchool(name) {
   renderGlobalTab();
 }
 
+function _isAdmin() { return _isAdmin()||currentUser?.email==='egers002@mater.colegia.org'; }
+
 async function _autoModerateSchools() {
-  if(currentUser?.email !== 'evan.h.gerstein@gmail.com') return;
+  if(!_isAdmin()) return;
   try {
     const all = await sbGet('schools','limit=200');
     for(const s of all) {
