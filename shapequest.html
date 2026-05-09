@@ -1412,7 +1412,7 @@ async function renderGlobalTab() {
   }
 
   const global = await sbGet('players', 'order=coins.desc&limit=100');
-  window._lbPlayers = global;
+  window._lbPlayers = global; // store so onclick can look up by index
 
   html += `<div class="lb-section-label">Top Players</div>`;
   if(!global.length) {
@@ -1423,6 +1423,7 @@ async function renderGlobalTab() {
       const avatarHtml = p.rarest_svg
         ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarest_svg}</div>`
         : `<div class="lb-av">${initials(p.name)}</div>`;
+      const hasShowcase = p.showcase_json && p.showcase_json.length > 2;
       html += `<div class="lb-row${isMe?' me':''}">
         <div class="lb-pos ${posClass(i)}">${i+1}</div>
         ${avatarHtml}
@@ -1431,7 +1432,7 @@ async function renderGlobalTab() {
           <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
         <div class="lb-score">
-          ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}','${encodeURIComponent(typeof p.showcase_json==='string'?p.showcase_json:JSON.stringify(p.showcase_json))}')">Showcase</button>`:'')}
+          ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(hasShowcase?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcaseByIndex(${i})">Showcase</button>`:'')}
           <span>${p.coins.toLocaleString()}</span> coins
         </div>
       </div>`;
@@ -1583,10 +1584,9 @@ async function deleteSchool(name) {
   renderGlobalTab();
 }
 
-function _isAdmin() { return _isAdmin()||currentUser?.email==='egers002@mater.colegia.org'; }
+function _isAdmin() { return currentUser?.email==='evan.h.gerstein@gmail.com'||currentUser?.email==='egers002@mater.colegia.org'; }
 
 async function _autoModerateSchools() {
-  if(!_isAdmin()) return;
   try {
     const all = await sbGet('schools','limit=200');
     for(const s of all) {
@@ -2351,12 +2351,17 @@ function openMyShowcase() {
   _scLaunch(entries, 'My Showcase', hint);
 }
 
+function openPlayerShowcaseByIndex(idx) {
+  const p = (window._lbPlayers||[])[idx];
+  if (!p) return;
+  let data = p.showcase_json;
+  if (typeof data === 'string') { try { data = JSON.parse(data); } catch(e) { return; } }
+  openPlayerShowcase(p.name, data);
+}
+
 function openPlayerShowcase(playerName, showcaseJson) {
   if (!showcaseJson) return;
-  // showcase_json is stored as a text string in the DB; decode if needed
-  if (typeof showcaseJson === 'string') {
-    try { showcaseJson = JSON.parse(decodeURIComponent(showcaseJson)); } catch(e) { return; }
-  }
+  if (typeof showcaseJson === 'string') { try { showcaseJson = JSON.parse(showcaseJson); } catch(e) { return; } }
   if (!showcaseJson || !showcaseJson.length) return;
   const entries = showcaseJson.map(d => {
     const shape = SHAPES.find(s=>s.id===d.s);
@@ -2646,6 +2651,7 @@ sbClient.auth.getSession().then(({data:{session}}) => {
     }
     updateAuthUI();
   }
+  _autoModerateSchools(); // runs on every page load; cleans bad names when signed in
 });
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'));
 </script>
