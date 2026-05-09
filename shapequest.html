@@ -167,6 +167,9 @@ nav a:hover,nav a.on { color:var(--ink); }
 .auth-user-email { font-size:.62rem;color:var(--soft);margin-bottom:20px; }
 .auth-signout-btn { width:100%;padding:9px 14px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--soft);transition:border-color .15s,color .15s; }
 .auth-signout-btn:hover { border-color:#aaa;color:var(--ink); }
+.auth-sync-btn { width:100%;padding:9px 14px;background:var(--ink);border:none;border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--bg);transition:opacity .15s;margin-top:14px; }
+.auth-sync-btn:hover { opacity:.8; }
+.auth-sync-btn:disabled { opacity:.4;cursor:not-allowed; }
 .auth-sync-note { font-size:.58rem;color:var(--soft);text-align:center;margin-top:10px;letter-spacing:.3px; }
 .auth-restore-divider { display:flex;align-items:center;gap:8px;margin:18px 0 10px;color:var(--soft);font-size:.54rem;letter-spacing:1.5px;text-transform:uppercase; }
 .auth-restore-divider::before,.auth-restore-divider::after { content:'';flex:1;height:1px;background:var(--line); }
@@ -361,7 +364,7 @@ nav a:hover,nav a.on { color:var(--ink); }
   <a id="authNavBtn" onclick="openAuthModal()">Sign In</a>
 </nav>
 <div class="corner-stat"><div class="lbl">Level</div><div class="val">12</div><div class="xp-track"><div class="xp-fill"></div></div></div>
-<div class="corner-coins"><div class="lbl">Coins</div><div class="val" id="coins">4,820</div></div>
+<div class="corner-coins"><div class="lbl">Coins</div><div class="val" id="coins">0</div></div>
 
 <div class="flash" id="flash"></div>
 <div id="rodToast"></div>
@@ -436,7 +439,9 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div class="auth-user-name" id="authUserName"></div>
       <div class="auth-user-email" id="authUserEmail"></div>
       <div class="auth-sync-note">Your collection &amp; progress syncs automatically across devices.</div>
-      <button class="auth-signout-btn" style="margin-top:18px" onclick="doSignOut()">Sign Out</button>
+      <button class="auth-sync-btn" id="forceSyncBtn" onclick="doForceSync()">Sync Now</button>
+      <div id="forceSyncMsg" style="font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);margin-top:4px;min-height:14px;text-align:center;"></div>
+      <button class="auth-signout-btn" style="margin-top:10px" onclick="doSignOut()">Sign Out</button>
       <div id="restoreSection" style="display:none">
         <div class="auth-restore-divider">Restore from another account</div>
         <div class="auth-restore-row">
@@ -2918,13 +2923,17 @@ async function loadUserData() {
 
     // If local collection has shapes the cloud doesn't, push them up
     const cloudCollectionSize = Object.keys(data.collection || {}).length;
-    if (Object.keys(collection).length > cloudCollectionSize) {
+    const localCollectionSize = Object.keys(collection).length;
+    console.log(`[ShapeQuest] loadUserData — cloud: ${cloudCollectionSize} shapes / ${cloudCoins} coins / lvl ${cloudLevel} | local: ${localCollectionSize} shapes / ${coinCount} coins / lvl ${playerLevel}`);
+    if (localCollectionSize > cloudCollectionSize) {
       localAhead = true;
     }
 
     // ── If local was ahead on anything, push the merged winner back to cloud ──
     if (localAhead || collectionChanged) {
+      console.log('[ShapeQuest] Local is ahead — pushing to cloud…');
       await saveUserData();
+      console.log('[ShapeQuest] Cloud save complete.');
     }
 
   } catch(e) {
@@ -3072,6 +3081,57 @@ async function submitAuth() {
   }
   btn.disabled = false;
   btn.textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+}
+
+async function doForceSync() {
+  if (!currentUser) return;
+  const btn = document.getElementById('forceSyncBtn');
+  const msg = document.getElementById('forceSyncMsg');
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  msg.textContent = '';
+  try {
+    // Re-read local values directly from localStorage to get true local state
+    // (in case loadUserData already overwrote in-memory values with cloud)
+    const localCoins  = parseInt(localStorage.getItem('sq_coins') || '0');
+    const localLevel  = parseInt(localStorage.getItem('sq_level') || '1');
+    const localXP     = parseInt(localStorage.getItem('sq_xp')    || '0');
+    const rawColl     = localStorage.getItem('sq_collection');
+    const localColObj = rawColl ? JSON.parse(rawColl) : {};
+    const localCollSize = Object.keys(localColObj).length;
+
+    console.log('[ShapeQuest] Force sync — pushing local save: coins:', localCoins, 'level:', localLevel, 'collection:', localCollSize, 'shapes');
+
+    // Override in-memory with true local values before pushing
+    coinCount   = localCoins;
+    playerLevel = localLevel;
+    playerXP    = localXP;
+    // Rebuild collection from localStorage
+    collection  = {};
+    for (const [k, v] of Object.entries(localColObj)) {
+      const shape  = SHAPES.find(s => s.id === v.shapeId);
+      const effect = EFFECTS.find(e => e.id === v.effectId);
+      const size   = SIZE_MODS.find(s => s.id === (v.sizeId || null)) || SIZE_MODS[0];
+      if (!shape || !effect) continue;
+      collection[k] = { shape, effect, size, count:v.count, bestPts:v.bestPts, score:v.score };
+    }
+
+    // Push local → cloud (direct overwrite, no merge)
+    await saveUserData();
+
+    document.getElementById('coins').textContent = coinCount.toLocaleString();
+    updateLevelDisplay();
+
+    console.log('[ShapeQuest] Force sync complete — saved', Object.keys(collection).length, 'shapes,', coinCount, 'coins to cloud.');
+    msg.textContent = `Saved · ${Object.keys(collection).length} shapes · ${coinCount.toLocaleString()} coins`;
+    msg.style.color = '#1a7a3a';
+  } catch(e) {
+    console.error('[ShapeQuest] Force sync failed:', e);
+    msg.textContent = 'Sync failed — see console';
+    msg.style.color = '#c03020';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Sync Now';
 }
 
 async function doSignOut() {
