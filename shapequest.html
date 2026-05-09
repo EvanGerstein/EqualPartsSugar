@@ -112,6 +112,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 .auth-switch { font-size:.62rem;color:var(--soft);text-align:center;margin-top:14px; }
 .auth-switch a { color:var(--ink);text-decoration:none; }
 .auth-switch a:hover { text-decoration:underline; }
+.auth-local-warn { font-size:.56rem;color:var(--soft);text-align:center;margin-top:12px;line-height:1.5;padding:0 4px; }
 .auth-user-name { font-size:.8rem;font-family:'Instrument Serif',serif;color:var(--ink);margin-bottom:6px; }
 .auth-user-email { font-size:.62rem;color:var(--soft);margin-bottom:20px; }
 .auth-signout-btn { width:100%;padding:9px 14px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--soft);transition:border-color .15s,color .15s; }
@@ -362,6 +363,7 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div id="authError" class="auth-error" style="display:none"></div>
       <button id="authSubmitBtn" class="auth-submit" onclick="submitAuth()">Sign In</button>
       <div id="authModeSwitchTxt" class="auth-switch">Don't have an account? <a href="#" onclick="setAuthMode('signup');return false">Sign up</a></div>
+      <div class="auth-local-warn">⚠ Signing in will replace your local save with your account data.</div>
     </div>
   </div>
 </div>
