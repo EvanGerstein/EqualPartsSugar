@@ -3128,11 +3128,17 @@ async function doForceSync() {
 }
 
 async function doSignOut() {
-  await sbClient.auth.signOut();
+  // Always clear local state immediately so the UI updates even if the network call hangs
   currentUser = null;
+  // Clear all known Supabase session key variants
+  for (const k of Object.keys(localStorage)) {
+    if (k.startsWith('sb-') && k.includes('supabase')) localStorage.removeItem(k);
+  }
   localStorage.removeItem('sb-uxprqqwqeymsynkynxoi-auth-token');
   document.getElementById('authModal').classList.remove('active');
-  await updateAuthUI();
+  updateAuthUI();
+  // Fire-and-forget the server-side signout — don't await, can't hang the UI
+  sbClient.auth.signOut().catch(() => {});
 }
 
 async function doRestore() {
