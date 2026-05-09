@@ -122,7 +122,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 #authNavBtn.signed-in.has-shape { width:28px;height:28px;background:transparent;overflow:visible; }
 
 /* ── SHOWCASE ── */
-#showcase { position:fixed;inset:0;z-index:20;background:var(--bg);display:none;opacity:0;transition:opacity .25s; }
+#showcase { position:fixed;inset:0;z-index:55;background:var(--bg);display:none;opacity:0;transition:opacity .25s; }
 #showcase.visible { display:block; }
 #showcase.active { opacity:1; }
 .showcase-hdr { position:absolute;top:28px;left:32px;right:32px;display:flex;align-items:flex-start;justify-content:space-between;z-index:5;pointer-events:none; }
@@ -1824,7 +1824,7 @@ const _SC_PAL = {
 function _scInitCanvas() {
   if (!_scCanvas) {
     _scCanvas = document.createElement('canvas');
-    _scCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:22;';
+    _scCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:57;';
     document.body.appendChild(_scCanvas);
     _scCtx = _scCanvas.getContext('2d');
   }
@@ -2412,15 +2412,17 @@ async function submitAuth() {
   clearAuthError();
   try {
     if (authMode === 'signin') {
-      const { error } = await sbClient.auth.signInWithPassword({ email, password });
+      const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
       document.getElementById('authModal').classList.remove('active');
+      if (data?.user) { currentUser = data.user; await updateAuthUI(); }
     } else {
-      const { error } = await sbClient.auth.signUp({
+      const { data, error } = await sbClient.auth.signUp({
         email, password, options: { emailRedirectTo: window.location.href.split('#')[0] }
       });
       if (error) throw error;
-      showAuthError('Account created! Check your email for a confirmation link.');
+      document.getElementById('authModal').classList.remove('active');
+      if (data?.user) { currentUser = data.user; await updateAuthUI(); }
     }
   } catch(e) {
     showAuthError(e.message || 'Authentication failed. Please try again.');
