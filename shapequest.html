@@ -1306,7 +1306,7 @@ function runCutscene(shape, effect, size, onDone){
 // ═══════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════
-let coinCount=parseInt(localStorage.getItem('sq_coins')||'4820'),castLocked=false,lockTimer=null;
+let coinCount=parseInt(localStorage.getItem('sq_coins')||'0'),castLocked=false,lockTimer=null;
 const LOCK_MS=[0,0,1800,3200,5000,7000,10000];
 
 function setCastLock(tier){
@@ -2787,18 +2787,31 @@ async function loadUserData() {
   if (!currentUser) return;
   try {
     const { data } = await sbClient.from('user_data').select('*').eq('user_id', currentUser.id).single();
-    if (!data) return;
-    if ((data.coins||0) > coinCount) {
-      coinCount = data.coins;
+
+    if (!data) {
+      // No cloud save at all — push local up so it exists next time
+      await saveUserData();
+      return;
+    }
+
+    // ── Take the best of cloud vs local for coins & level ──
+    const cloudCoins = data.coins || 0;
+    const cloudLevel = data.level || 1;
+    let changed = false;
+
+    if (cloudCoins > coinCount) {
+      coinCount = cloudCoins;
       localStorage.setItem('sq_coins', coinCount);
       document.getElementById('coins').textContent = coinCount.toLocaleString();
+      changed = true;
     }
-    if ((data.level||1) > playerLevel) {
-      playerLevel = data.level;
-      playerXP = data.xp||0;
+    if (cloudLevel > playerLevel) {
+      playerLevel = cloudLevel;
+      playerXP = data.xp || 0;
       localStorage.setItem('sq_level', playerLevel);
       localStorage.setItem('sq_xp', playerXP);
       updateLevelDisplay();
+      changed = true;
     }
     if (data.player_name && !playerName) {
       playerName = data.player_name;
@@ -2808,6 +2821,8 @@ async function loadUserData() {
       playerSchool = data.school;
       localStorage.setItem('sq_school', playerSchool);
     }
+
+    // ── Always merge collections — keep the best count/pts for every entry ──
     if (data.collection && typeof data.collection === 'object') {
       for (const [k, v] of Object.entries(data.collection)) {
         const shape = SHAPES.find(s => s.id === v.shapeId);
@@ -2815,13 +2830,26 @@ async function loadUserData() {
         const size = SIZE_MODS.find(s => s.id === (v.sizeId||null)) || SIZE_MODS[0];
         if (!shape || !effect) continue;
         if (collection[k]) {
-          collection[k].count = Math.max(collection[k].count, v.count||1);
-          collection[k].bestPts = Math.max(collection[k].bestPts, v.bestPts||0);
+          const newCount = Math.max(collection[k].count, v.count||1);
+          const newPts   = Math.max(collection[k].bestPts, v.bestPts||0);
+          if (newCount !== collection[k].count || newPts !== collection[k].bestPts) {
+            collection[k].count   = newCount;
+            collection[k].bestPts = newPts;
+            changed = true;
+          }
         } else {
           collection[k] = { shape, effect, size, count:v.count||1, bestPts:v.bestPts||0, score:v.score||rarityScore(v.shapeId,v.effectId,v.sizeId||null) };
+          changed = true;
         }
       }
+      if (changed) saveCollectionLocally();
     }
+
+    // ── If local was ahead on coins/level, push the merged winner back to cloud ──
+    if (coinCount > cloudCoins || playerLevel > cloudLevel) {
+      await saveUserData();
+    }
+
   } catch(e) {}
 }
 
