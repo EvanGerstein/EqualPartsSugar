@@ -115,6 +115,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 .auth-sync-note { font-size:.58rem;color:var(--soft);text-align:center;margin-top:10px;letter-spacing:.3px; }
 #authNavBtn { cursor:pointer; }
 #authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.58rem;letter-spacing:0; }
+#authNavBtn.signed-in.has-shape { width:28px;height:28px;background:transparent;overflow:visible; }
 
 /* ── SHOWCASE ── */
 #showcase { position:fixed;inset:0;z-index:20;background:var(--bg);display:none;opacity:0;transition:opacity .25s; }
@@ -1798,6 +1799,10 @@ function _scLaunch(entries, title, hint) {
   window.addEventListener('touchmove', _scMoveH, {passive:false});
   window.addEventListener('touchend', _scUpH);
 
+  document.querySelector('nav').style.opacity = '0';
+  document.querySelector('nav').style.pointerEvents = 'none';
+  document.querySelector('.wordmark').style.opacity = '0';
+
   const sc = document.getElementById('showcase');
   sc.classList.add('visible'); requestAnimationFrame(() => sc.classList.add('active'));
 
@@ -1820,6 +1825,10 @@ function _scLaunch(entries, title, hint) {
 }
 
 function closeShowcase() {
+  document.querySelector('nav').style.opacity = '';
+  document.querySelector('nav').style.pointerEvents = '';
+  document.querySelector('.wordmark').style.opacity = '';
+
   const sc = document.getElementById('showcase');
   sc.classList.remove('active');
   setTimeout(() => sc.classList.remove('visible'), 270);
@@ -1962,24 +1971,44 @@ sbClient.auth.onAuthStateChange(async (event, session) => {
       if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
     }
     await loadUserData();
-    updateAuthUI();
+    await updateAuthUI();
+    if (currentPage === 'ranks') renderGlobalTab();
   } else {
     currentUser = null;
-    updateAuthUI();
+    await updateAuthUI();
+    if (currentPage === 'ranks') renderGlobalTab();
   }
 });
 
-function updateAuthUI() {
+async function updateAuthUI() {
+  if (!currentUser) {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session?.user) {
+      currentUser = session.user;
+      if (!playerName) {
+        const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+        if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+      }
+    }
+  }
   const btn = document.getElementById('authNavBtn');
   if (currentUser) {
-    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || '';
-    btn.textContent = (name[0]||'?').toUpperCase();
-    btn.title = name || currentUser.email;
+    const rarest = getRarestShape();
+    if (rarest) {
+      btn.innerHTML = rarest.svgStr;
+      btn.classList.add('has-shape');
+    } else {
+      const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || '';
+      btn.textContent = (name[0]||'?').toUpperCase();
+      btn.classList.remove('has-shape');
+    }
+    btn.title = currentUser.user_metadata?.full_name || currentUser.email || '';
     btn.classList.add('signed-in');
   } else {
+    btn.innerHTML = '';
     btn.textContent = 'Sign In';
     btn.title = '';
-    btn.classList.remove('signed-in');
+    btn.classList.remove('signed-in', 'has-shape');
   }
 }
 
