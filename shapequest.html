@@ -2451,6 +2451,17 @@ coinCount=parseInt(localStorage.getItem('sq_coins')||'4820');
 document.getElementById('coins').textContent=coinCount.toLocaleString();
 loadCollectionLocally();
 updateLevelDisplay();
+// Synchronously pre-load session from localStorage so nav button is correct on first render
+try {
+  const _stored = JSON.parse(localStorage.getItem('sb-uxprqqwqeymsynkynxoi-auth-token') || 'null');
+  if (_stored?.user) {
+    currentUser = _stored.user;
+    if (!playerName) {
+      const gName = _stored.user.user_metadata?.full_name || _stored.user.user_metadata?.name || '';
+      if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+    }
+  }
+} catch(e) {}
 updateAuthUI();
 sbClient.auth.getSession().then(({data:{session}}) => {
   if (session?.user && !currentUser) {
