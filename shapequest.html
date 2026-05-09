@@ -1377,7 +1377,7 @@ async function renderGlobalTab() {
           <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
         <div class="lb-score">
-          ${p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}',${JSON.stringify(p.showcase_json)})">Showcase</button>`:''}
+          ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}',${JSON.stringify(p.showcase_json)})">Showcase</button>`:'')}
           <span>${p.coins.toLocaleString()}</span> coins
         </div>
       </div>`;
@@ -1397,7 +1397,10 @@ async function renderGlobalTab() {
           <div class="lb-name">${s.name}${isMySchool?' (yours)':''}</div>
           <div class="lb-sub">${s.member_count} player${s.member_count!==1?'s':''}</div>
         </div>
-        <div class="lb-score"><span>${s.total_coins.toLocaleString()}</span> total</div>
+        <div class="lb-score">
+          ${currentUser?.email==='evan.h.gerstein@gmail.com'?`<button class="sc-player-btn" style="background:#c03030;color:#fff;border-color:#c03030" onclick="event.stopPropagation();deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
+          <span>${s.total_coins.toLocaleString()}</span> total
+        </div>
       </div>`;
     });
   }
@@ -1478,9 +1481,12 @@ async function searchAndRender(q) {
           <div class="school-result-name">${s.name}</div>
           <div class="school-result-meta">${s.member_count} player${s.member_count!==1?'s':''} · ${s.total_coins.toLocaleString()} coins</div>
         </div>
-        <button class="school-result-join ${joined?'joined':''}" onclick="joinAndRefresh('${s.name.replace(/'/g,"\\'")}')">
-          ${joined?'Joined':'Join'}
-        </button>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${currentUser?.email==='evan.h.gerstein@gmail.com'?`<button class="school-result-join" style="background:#c03030;color:#fff;border-color:#c03030" onclick="deleteSchool('${s.name.replace(/'/g,"\\'")}')">Remove</button>`:''}
+          <button class="school-result-join ${joined?'joined':''}" onclick="joinAndRefresh('${s.name.replace(/'/g,"\\'")}')">
+            ${joined?'Joined':'Join'}
+          </button>
+        </div>
       </div>`;
     });
   } else if(q.trim().length > 2) {
@@ -1506,6 +1512,13 @@ async function addAndJoinSchool(name) {
   await sbUpsert('schools', { name: name.trim(), member_count: 0, total_coins: 0 });
   joinSchool(name.trim());
   await renderSchoolTab();
+}
+
+async function deleteSchool(name) {
+  if(!confirm(`Remove "${name}" from the database?`)) return;
+  await sbClient.from('schools').delete().eq('name', name);
+  await sbClient.from('school_scores').delete().eq('school_name', name);
+  renderGlobalTab();
 }
 
 function setName() {
@@ -2060,6 +2073,16 @@ document.getElementById('coins').textContent=coinCount.toLocaleString();
 loadCollectionLocally();
 updateLevelDisplay();
 updateAuthUI();
+sbClient.auth.getSession().then(({data:{session}}) => {
+  if (session?.user && !currentUser) {
+    currentUser = session.user;
+    if (!playerName) {
+      const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+      if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+    }
+    updateAuthUI();
+  }
+});
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'));
 </script>
 </body>
