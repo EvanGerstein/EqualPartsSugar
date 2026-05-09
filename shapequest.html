@@ -47,6 +47,8 @@ nav a:hover,nav a.on { color:var(--ink); }
 @keyframes bgpulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
 
 .flash { position:fixed;inset:0;z-index:200;background:transparent;opacity:0;pointer-events:none;transition:opacity .05s; }
+.sc-infected { filter: sepia(0.9) hue-rotate(60deg) saturate(3.5) brightness(0.85) !important; outline:2px solid #70c030; outline-offset:2px; border-radius:50%; }
+.sc-burning  { filter: sepia(1) saturate(5) hue-rotate(-40deg) brightness(1.3) !important; outline:2px solid #ff6010; outline-offset:2px; border-radius:50%; }
 .flash.on { opacity:1; }
 .flash.gold { background:linear-gradient(135deg,#fff8e0,#fff0a0); }
 .flash.spectral { background:linear-gradient(135deg,#f0e0ff,#e0f0ff); }
@@ -1115,6 +1117,15 @@ function runCutscene(shape, effect, size, onDone){
       const rc=['#20a0d0','#40d0f0','#0060a0','#80e0ff','#ffffff'];
       for(let i=0;i<110;i++){const a=Math.random()*Math.PI*2,sp=3+Math.random()*12;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*4,color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.007+Math.random()*.006,delay:Math.floor(Math.random()*25)});}
       for(let i=0;i<16;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:10+i*0.8,lw:i%2===0?3:1.5,color:rc[i%rc.length],alpha:1,decay:.007,delay:i*9});
+    } else if(effect.id==='Plague'){
+      // Spore cloud — slow drifting blobs, murky expanding rings, spores scatter wide
+      const rc=['#507030','#80a040','#304020','#a0c060','#609040','#c0e080','#3a5018'];
+      for(let i=0;i<140;i++){
+        const a=Math.random()*Math.PI*2, sp=1.2+Math.random()*10;
+        csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:3+Math.random()*8,
+          color:rc[Math.floor(Math.random()*rc.length)],alpha:0.9,decay:.004+Math.random()*.005,delay:Math.floor(Math.random()*35)});
+      }
+      for(let i=0;i<11;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:6+i*1.4,lw:i%3===0?4:2,color:rc[i%rc.length],alpha:0.85,decay:.006,delay:i*14});
     } else {
       // Generic big burst
       for(let i=0;i<100;i++){const a=Math.random()*Math.PI*2,sp=3+Math.random()*14;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*5,color:effect.color,alpha:1,decay:.009,delay:Math.floor(Math.random()*15)});}
@@ -1125,7 +1136,7 @@ function runCutscene(shape, effect, size, onDone){
   // bg color for cutscene
   const bgColors={Inferno:'#1a0800',Gilded:'#1a1400',Spectral:'#0a0014',Cosmic:'#02040e',Void:'#080010',Eclipse:'#0e0800',
     Phoenix:'#1a0400',Abyssal:'#010108',Divine:'#1a1800',Arcane:'#0a0018',Celestial:'#020614',
-    Gravity:'#020008',Magnet:'#000810',Tide:'#000818'};
+    Gravity:'#020008',Magnet:'#000810',Tide:'#000818',Plague:'#010800'};
   const bg=bgColors[effect.id]||'#08080e';
 
   function drawCS(){
@@ -1546,12 +1557,20 @@ async function searchAndRender(q) {
 }
 
 async function joinAndRefresh(name) {
+  if(_containsBadWord(name)) { alert('That school name isn\'t allowed.'); return; }
   joinSchool(name);
   await renderSchoolTab();
 }
 
+const _BAD_WORDS = ['fuck','shit','ass','bitch','cunt','dick','cock','pussy','nigger','nigga','faggot','retard','whore','slut','bastard','porn','sex','rape','nazi','kys','kill yourself'];
+function _containsBadWord(str) {
+  const s = str.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return _BAD_WORDS.some(w => s.includes(w.replace(/[^a-z0-9]/g,'')));
+}
+
 async function addAndJoinSchool(name) {
   if(!name.trim() || name.trim().length < 2) return;
+  if(_containsBadWord(name)) { alert('That school name isn\'t allowed. Please choose an appropriate name.'); return; }
   await sbUpsert('schools', { name: name.trim(), member_count: 0, total_coins: 0 });
   joinSchool(name.trim());
   await renderSchoolTab();
@@ -1562,6 +1581,19 @@ async function deleteSchool(name) {
   await sbClient.from('schools').delete().eq('name', name);
   await sbClient.from('school_scores').delete().eq('school_name', name);
   renderGlobalTab();
+}
+
+async function _autoModerateSchools() {
+  if(currentUser?.email !== 'evan.h.gerstein@gmail.com') return;
+  try {
+    const all = await sbGet('schools','limit=200');
+    for(const s of all) {
+      if(_containsBadWord(s.name)) {
+        await sbClient.from('schools').delete().eq('name', s.name);
+        await sbClient.from('school_scores').delete().eq('school_name', s.name);
+      }
+    }
+  } catch(e){}
 }
 
 function setName() {
@@ -1811,6 +1843,7 @@ function showPage(page) {
     currentRanksTab='global';
     document.querySelectorAll('.ranks-tab').forEach((t,i)=>t.classList.toggle('on',i===0));
     renderGlobalTab();
+    _autoModerateSchools();
     stage.style.opacity='0'; stage.style.pointerEvents='none';
     cstat.style.opacity='0'; ccoins.style.opacity='0';
   }
@@ -1906,6 +1939,7 @@ function _scPlayImpact(effectId, soft) {
     else if (effectId==='Gravity')                              { playTone(38,'sine',0.45,v*2.5); playNoise(0.12,v*1.8,40); }
     else if (effectId==='Magnet')                               { playNoise(0.06,v*4,2400); playTone(320,'square',0.10,v*0.8); }
     else if (effectId==='Tide')                                 { playTone(180,'sine',0.18,v*1.4); playTone(240,'sine',0.12,v,0.08); }
+    else if (effectId==='Plague')                               { playNoise(0.10,v*1.6,80); playTone(85,'sine',0.20,v*1.8); }
     else                                                        { playTone(190,'sine',0.12,v); playNoise(0.07,v*0.5,700); }
   } catch(e) {}
 }
@@ -1967,6 +2001,7 @@ function _scLaunch(entries, title, hint) {
       _prevHit:new Set(), _curHit:new Set(),
       _prevWall:0, _curWall:0,
       _phase:Math.random()*Math.PI*2,  // for Aurora/Arcane
+      _infectedTimer:0, _burningTimer:0,  // Plague / Inferno spread
       dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0
     };
     el.style.width = sw+'px';
@@ -2086,15 +2121,17 @@ function _scLaunch(entries, title, hint) {
           continue;
         }
 
-        // ── Abyssal: gooey inelastic ──
+        // ── Abyssal: gooey low-restitution + jelly squish ──
         if (ae==='Abyssal'||be==='Abyssal') {
-          const str=0.52;
-          if(ae==='Abyssal'){a.sqVX+=str*(Math.abs(ny)-Math.abs(nx));a.sqVY+=str*(Math.abs(nx)-Math.abs(ny));}
-          if(be==='Abyssal'){b.sqVX+=str*(Math.abs(ny)-Math.abs(nx));b.sqVY+=str*(Math.abs(nx)-Math.abs(ny));}
-          const mvx=(a.vx+b.vx)*.5, mvy=(a.vy+b.vy)*.5;
-          a.vx=a.vx*.32+mvx*.68; a.vy=a.vy*.32+mvy*.68;
-          b.vx=b.vx*.32+mvx*.68; b.vy=b.vy*.32+mvy*.68;
-          if(isNew){_scSpawnVFX(spx,spy,'Abyssal');_scPlayImpact('Abyssal',false);}
+          // Proper inelastic physics — rest=0.22 keeps some bounce so shapes don't stop dead
+          const j2=-(1+0.22)*dot*0.5; // invM=2 for equal mass
+          a.vx-=j2*nx; a.vy-=j2*ny;
+          b.vx+=j2*nx; b.vy+=j2*ny;
+          // Squish scaled by impact speed, working on both axes properly
+          const imp=Math.min(0.55,Math.abs(dot)*0.18);
+          if(ae==='Abyssal'){a.sqVX-=imp*nx*nx; a.sqVY-=imp*ny*ny;}
+          if(be==='Abyssal'){b.sqVX-=imp*nx*nx; b.sqVY-=imp*ny*ny;}
+          if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Abyssal');_scPlayImpact('Abyssal',false);}
           continue;
         }
 
@@ -2118,6 +2155,48 @@ function _scLaunch(entries, title, hint) {
           continue;
         }
 
+        // ── Plague: infect on contact, infected spreads to others ──
+        if (ae==='Plague'||be==='Plague') {
+          const victim=ae==='Plague'?b:a;
+          if(!victim._infectedTimer) {
+            victim._infectedTimer=480;
+            if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Plague');_scPlayImpact('Plague',false);}
+          }
+          // Sluggish gooey bounce
+          const j2p=-(1+0.40)*dot*0.5;
+          a.vx-=j2p*nx; a.vy-=j2p*ny; b.vx+=j2p*nx; b.vy+=j2p*ny;
+          continue;
+        }
+        // Infected shapes spread plague to healthy ones
+        if ((a._infectedTimer>0||b._infectedTimer>0)&&!(ae==='Plague'||be==='Plague')) {
+          const infected=a._infectedTimer>0?a:b, healthy=a._infectedTimer>0?b:a;
+          if(!healthy._infectedTimer&&Math.random()<0.40) {
+            healthy._infectedTimer=320;
+            if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Plague');}
+          }
+        }
+
+        // ── Inferno: fire spread — ignite victim on contact ──
+        if (ae==='Inferno'||be==='Inferno') {
+          const victim=ae==='Inferno'?b:a;
+          if(!victim._burningTimer) {
+            victim._burningTimer=380;
+            if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Inferno');_scPlayImpact('Inferno',false);}
+          }
+          // Super bouncy — fire launches shapes away
+          const j2f=-(1+1.45)*dot*0.5;
+          a.vx-=j2f*nx; a.vy-=j2f*ny; b.vx+=j2f*nx; b.vy+=j2f*ny;
+          continue;
+        }
+        // Burning shapes spread fire to others (chain ignition)
+        if ((a._burningTimer>0||b._burningTimer>0)&&!(ae==='Inferno'||be==='Inferno')) {
+          const burner=a._burningTimer>0?a:b, cold=a._burningTimer>0?b:a;
+          if(!cold._burningTimer&&Math.random()<0.50) {
+            cold._burningTimer=260;
+            if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Inferno');}
+          }
+        }
+
         // ── Gilded/Stone/Rust: variable mass ──
         const massA = ae==='Gilded'?4 : ae==='Stone'||ae==='Rust'?2 : 1;
         const massB = be==='Gilded'?4 : be==='Stone'||be==='Rust'?2 : 1;
@@ -2125,7 +2204,7 @@ function _scLaunch(entries, title, hint) {
         let rest=0.82;
         if      (ae==='Aqua'||be==='Aqua')                                        { rest=0.94; }
         else if (ae==='Shadow'||be==='Shadow')                                     { rest=0.42; }
-        else if (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix')   { rest=1.35; }
+        else if (ae==='Phoenix'||be==='Phoenix')                                   { rest=1.35; }
         else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal')     { a.vx*=.65;a.vy*=.65;b.vx*=.65;b.vy*=.65; rest=0.6; }
         else if (ae==='Storm'||be==='Storm')                                       { a.vx+=(Math.random()-.5)*2.5;a.vy+=(Math.random()-.5)*2.5;b.vx+=(Math.random()-.5)*2.5;b.vy+=(Math.random()-.5)*2.5; rest=1.05; }
         else if (ae==='Celestial'||be==='Celestial')                               { rest=0.55; }
@@ -2176,6 +2255,27 @@ function _scLaunch(entries, title, hint) {
       if(s.y<topY){    const spd=Math.abs(s.vy);s.y=topY;   s.vy= spd*wCoef; if(spd>1.0&&!(s._prevWall&4)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx*sc,78,             s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=4;}
       if(s.y+s.h>H2){  const spd=Math.abs(s.vy);s.y=H2-s.h;s.vy=-spd*wCoef; if(spd>1.0&&!(s._prevWall&8)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx*sc,innerHeight-14,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=8;}
       s.vx*=.9995; s.vy*=.9995;
+
+      // ── Plague infection tick ──
+      if (s._infectedTimer>0) {
+        s._infectedTimer--;
+        s.vx*=0.9982; s.vy*=0.9982; // sickly slowdown
+        if(Math.random()<0.010){_scSpawnVFX((s.x+s.w/2)*sc,(s.y+s.h/2)*sc,'Plague');}
+        s.el.classList.add('sc-infected');
+      } else if (s._infectedTimer===0&&s.el.classList.contains('sc-infected')) {
+        s.el.classList.remove('sc-infected');
+      }
+
+      // ── Inferno burning tick ──
+      if (s._burningTimer>0) {
+        s._burningTimer--;
+        const spd=Math.hypot(s.vx,s.vy);
+        if(spd>0.4&&spd<13){s.vx*=1.004;s.vy*=1.004;} // heat acceleration
+        if(Math.random()<0.018){_scSpawnVFX((s.x+s.w/2)*sc,(s.y+s.h/2)*sc,'Inferno');}
+        s.el.classList.add('sc-burning');
+      } else if (s._burningTimer===0&&s.el.classList.contains('sc-burning')) {
+        s.el.classList.remove('sc-burning');
+      }
 
       // ── Spring squish ──
       const k=s.effectId==='Abyssal'?0.055 : s.effectId==='Gilded'||s.effectId==='Stone'?0.28 : 0.20;
