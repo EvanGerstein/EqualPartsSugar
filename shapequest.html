@@ -1605,6 +1605,7 @@ async function renderGlobalTab() {
         ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarest_svg}</div>`
         : `<div class="lb-av">${initials(p.name)}</div>`;
       const hasShowcase = p.showcase_json && p.showcase_json.length > 2;
+      const safeName = p.name.replace(/'/g,"\\'");
       html += `<div class="lb-row${isMe?' me':''}">
         <div class="lb-pos ${posClass(i)}">${i+1}</div>
         ${avatarHtml}
@@ -1614,6 +1615,7 @@ async function renderGlobalTab() {
         </div>
         <div class="lb-score">
           ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(hasShowcase?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcaseByIndex(${i})">Showcase</button>`:'')}
+          ${_isAdmin()?`<button class="sc-player-btn" style="background:#c03030;color:#fff;border-color:#c03030" onclick="event.stopPropagation();deletePlayer('${safeName}')">✕</button>`:''}
           <span>${p.coins.toLocaleString()}</span> coins
         </div>
       </div>`;
@@ -1779,6 +1781,25 @@ async function deleteSchool(name) {
   } catch(e) {
     alert(`Error: ${e.message}`);
   }
+}
+
+async function deletePlayer(name) {
+  if(!confirm(`Remove all leaderboard entries for "${name}"?`)) return;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    const jwt = session?.access_token || SB_KEY;
+    const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    const enc = encodeURIComponent(name);
+    const [r1, r2] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/players?name=eq.${enc}`, { method:'DELETE', headers }),
+      fetch(`${SB_URL}/rest/v1/school_scores?player_name=eq.${enc}`, { method:'DELETE', headers }),
+    ]);
+    if (!r1.ok) {
+      const err = await r1.json().catch(()=>({}));
+      alert(`Failed: ${err.message||r1.status}`); return;
+    }
+    renderGlobalTab();
+  } catch(e) { alert(`Error: ${e.message}`); }
 }
 
 function _isAdmin() { return currentUser?.email==='evan.h.gerstein@gmail.com'||currentUser?.email==='egers002@mater.colegia.org'; }
