@@ -2916,6 +2916,12 @@ async function loadUserData() {
       if (collectionChanged) saveCollectionLocally();
     }
 
+    // If local collection has shapes the cloud doesn't, push them up
+    const cloudCollectionSize = Object.keys(data.collection || {}).length;
+    if (Object.keys(collection).length > cloudCollectionSize) {
+      localAhead = true;
+    }
+
     // ── If local was ahead on anything, push the merged winner back to cloud ──
     if (localAhead || collectionChanged) {
       await saveUserData();
