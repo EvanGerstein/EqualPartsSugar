@@ -1855,13 +1855,21 @@ function _scLaunch(entries, title, hint) {
     stage.innerHTML = '<div class="showcase-empty">Roll Rare or better shapes to fill your showcase.</div>';
   }
 
-  // Scale shape size so all fit
+  // Zoom out the stage so shapes have more room; shapes stay full size
   const cnt = entries.length;
-  const sw = cnt<=8?130 : cnt<=14?108 : cnt<=22?88 : cnt<=32?72 : 60;
-  const sh = Math.round(sw*1.19);
-  const R  = sw*0.50;
+  const stageScale = cnt<=6?1.0 : cnt<=10?0.88 : cnt<=16?0.76 : cnt<=24?0.64 : cnt<=36?0.54 : 0.46;
+  const sw = 130, sh = 155, R = 65;
 
-  const W = innerWidth, H = innerHeight;
+  stage.style.transformOrigin = 'top left';
+  stage.style.transform = `scale(${stageScale})`;
+  stage.style.position = 'absolute';
+  stage.style.width  = Math.round(innerWidth  / stageScale) + 'px';
+  stage.style.height = Math.round(innerHeight / stageScale) + 'px';
+
+  // Physics runs in virtual (stage-local) coordinates
+  const W = Math.round(innerWidth  / stageScale);
+  const H = Math.round(innerHeight / stageScale);
+  const topY = Math.round(70 / stageScale);
   entries.forEach(({shape, effect, size, label, rarityLbl, color}) => {
     const el = _scBuildEl(shape, effect, size, label, rarityLbl, color);
     stage.appendChild(el);
@@ -1908,7 +1916,8 @@ function _scLaunch(entries, title, hint) {
 
   if (_scRaf) cancelAnimationFrame(_scRaf);
   function loop() {
-    const W2=innerWidth, H2=innerHeight, N=_scShapes.length;
+    // W/H are virtual (stage-local); sc = stageScale converts to screen for VFX
+    const W2=W, H2=H, sc=stageScale, N=_scShapes.length;
 
     // ── Reset per-frame hit tracking ──
     for (let i=0;i<N;i++) {
@@ -2037,7 +2046,7 @@ function _scLaunch(entries, title, hint) {
         const asp=Math.hypot(a.vx,a.vy);if(asp>maxSpd){a.vx=a.vx/asp*maxSpd;a.vy=a.vy/asp*maxSpd;}
         const bsp=Math.hypot(b.vx,b.vy);if(bsp>maxSpd){b.vx=b.vx/bsp*maxSpd;b.vy=b.vy/bsp*maxSpd;}
 
-        if(isNew){_scSpawnVFX(spx,spy,ae||be);_scPlayImpact(ae||be,false);}
+        if(isNew){_scSpawnVFX(spx*sc,spy*sc,ae||be);_scPlayImpact(ae||be,false);}
       }
     }
 
@@ -2048,10 +2057,10 @@ function _scLaunch(entries, title, hint) {
       const cx=s.x+s.w/2, cy=s.y+s.h/2;
       const wCoef = s.effectId==='Aqua'?0.94 : s.effectId==='Abyssal'?0.72 : 0.88;
       const sqW=0.42, sqH=0.32;
-      if(s.x<0){       const spd=Math.abs(s.vx);s.x=0;s.vx=spd*wCoef; if(spd>1.0&&!(s._prevWall&1)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(14,cy,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=1;}
-      if(s.x+s.w>W2){  const spd=Math.abs(s.vx);s.x=W2-s.w;s.vx=-spd*wCoef;if(spd>1.0&&!(s._prevWall&2)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(W2-14,cy,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=2;}
-      if(s.y<70){      const spd=Math.abs(s.vy);s.y=70;s.vy=spd*wCoef; if(spd>1.0&&!(s._prevWall&4)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx,82,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=4;}
-      if(s.y+s.h>H2){  const spd=Math.abs(s.vy);s.y=H2-s.h;s.vy=-spd*wCoef;if(spd>1.0&&!(s._prevWall&8)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx,H2-14,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=8;}
+      if(s.x<0){       const spd=Math.abs(s.vx);s.x=0;      s.vx= spd*wCoef; if(spd>1.0&&!(s._prevWall&1)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(14,          cy*sc,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=1;}
+      if(s.x+s.w>W2){  const spd=Math.abs(s.vx);s.x=W2-s.w;s.vx=-spd*wCoef; if(spd>1.0&&!(s._prevWall&2)){s.sqVX-=sqW;s.sqVY+=sqH;_scSpawnVFX(innerWidth-14,cy*sc,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=2;}
+      if(s.y<topY){    const spd=Math.abs(s.vy);s.y=topY;   s.vy= spd*wCoef; if(spd>1.0&&!(s._prevWall&4)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx*sc,78,             s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=4;}
+      if(s.y+s.h>H2){  const spd=Math.abs(s.vy);s.y=H2-s.h;s.vy=-spd*wCoef; if(spd>1.0&&!(s._prevWall&8)){s.sqVX+=sqH;s.sqVY-=sqW;_scSpawnVFX(cx*sc,innerHeight-14,s.effectId);_scPlayImpact(s.effectId,true);}s._curWall|=8;}
       s.vx*=.9995; s.vy*=.9995;
 
       // ── Spring squish ──
@@ -2098,6 +2107,8 @@ function closeShowcase() {
   document.querySelector('nav').style.opacity = '';
   document.querySelector('nav').style.pointerEvents = '';
   document.querySelector('.wordmark').style.opacity = '';
+  const stage = document.getElementById('showcaseStage');
+  stage.style.transform = ''; stage.style.width = ''; stage.style.height = ''; stage.style.position = '';
 
   const sc = document.getElementById('showcase');
   sc.classList.remove('active');
