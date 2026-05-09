@@ -116,6 +116,24 @@ nav a:hover,nav a.on { color:var(--ink); }
 #authNavBtn { cursor:pointer; }
 #authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.58rem;letter-spacing:0; }
 
+/* ── SHOWCASE ── */
+#showcase { position:fixed;inset:0;z-index:20;background:var(--bg);display:none;opacity:0;transition:opacity .25s; }
+#showcase.visible { display:block; }
+#showcase.active { opacity:1; }
+.showcase-hdr { position:absolute;top:28px;left:32px;right:32px;display:flex;align-items:flex-start;justify-content:space-between;z-index:5;pointer-events:none; }
+.showcase-hdr button { pointer-events:all; }
+.showcase-title { font-family:'Instrument Serif',serif;font-size:1.1rem;color:var(--ink); }
+.showcase-hint { font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);margin-top:3px; }
+.showcase-close { background:none;border:none;cursor:pointer;font-size:1rem;color:var(--soft);padding:4px; }
+.showcase-shape-el { position:absolute;cursor:grab;user-select:none;text-align:center; }
+.showcase-shape-el:active { cursor:grabbing; }
+.showcase-shape-lbl { font-size:.52rem;letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;color:var(--soft); }
+.showcase-empty { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:1.1rem;color:var(--soft); }
+.showcase-open-btn { font-size:.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);text-decoration:none;cursor:pointer;transition:color .15s; }
+.showcase-open-btn:hover { color:var(--ink); }
+.sc-player-btn { font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--soft);background:none;border:1px solid var(--line);border-radius:5px;padding:3px 8px;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap; }
+.sc-player-btn:hover { color:var(--ink);border-color:#aaa; }
+
 /* ── DETAIL MODAL ── */
 #detail {
   position:fixed;inset:0;z-index:400;
@@ -296,7 +314,10 @@ nav a:hover,nav a.on { color:var(--ink); }
 <div id="catalogue">
   <div class="cat-header">
     <div class="cat-title">Catalogue</div>
-    <div class="cat-count" id="catCount">0 shapes</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <a class="showcase-open-btn" onclick="openMyShowcase()">Showcase</a>
+      <div class="cat-count" id="catCount">0 shapes</div>
+    </div>
   </div>
   <div class="cat-grid-wrap">
     <div class="cat-grid" id="catGrid"></div>
@@ -328,6 +349,18 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div id="authModeSwitchTxt" class="auth-switch">Don't have an account? <a href="#" onclick="setAuthMode('signup');return false">Sign up</a></div>
     </div>
   </div>
+</div>
+
+<!-- Showcase overlay -->
+<div id="showcase">
+  <div class="showcase-hdr">
+    <div>
+      <div class="showcase-title" id="showcaseTitle">My Showcase</div>
+      <div class="showcase-hint" id="showcaseHint">Drag shapes · they bounce</div>
+    </div>
+    <button class="showcase-close" onclick="closeShowcase()">✕</button>
+  </div>
+  <div id="showcaseStage"></div>
 </div>
 
 <!-- Detail modal -->
@@ -1256,6 +1289,13 @@ function getRarestShape() {
 async function submitScore() {
   if(!playerName) return;
   const rarest = getRarestShape();
+  // Build showcase: rare+ shapes as compact JSON
+  const showcaseArr = Object.values(collection)
+    .filter(e => e.score >= 11.5)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 15)
+    .map(e => ({ s: e.shape.id, e: e.effect.id, z: e.size && e.size.id ? e.size.id : null }));
+  const showcaseJson = JSON.stringify(showcaseArr);
   await sbUpsert('players', {
     name: playerName,
     school: playerSchool||'',
@@ -1265,6 +1305,7 @@ async function submitScore() {
     rarest_svg: rarest ? rarest.svgStr : null,
     rarest_label: rarest ? rarest.rarityLabel : null,
     rarest_color: rarest ? rarest.effectColor : null,
+    showcase_json: showcaseJson,
   });
   if(playerSchool) {
     await sbUpsert('school_scores', {
@@ -1276,6 +1317,7 @@ async function submitScore() {
       rarest_svg: rarest ? rarest.svgStr : null,
       rarest_label: rarest ? rarest.rarityLabel : null,
       rarest_color: rarest ? rarest.effectColor : null,
+      showcase_json: showcaseJson,
     });
     const members = await sbGet('school_scores', `school_name=eq.${encodeURIComponent(playerSchool)}&select=coins`);
     const totalCoins = members.reduce((s,x)=>s+x.coins,0);
@@ -1316,6 +1358,7 @@ async function renderGlobalTab() {
   }
 
   const global = await sbGet('players', 'order=coins.desc&limit=100');
+  window._lbPlayers = global;
 
   html += `<div class="lb-section-label">Top Players</div>`;
   if(!global.length) {
@@ -1333,7 +1376,10 @@ async function renderGlobalTab() {
           <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
           <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
-        <div class="lb-score"><span>${p.coins.toLocaleString()}</span> coins</div>
+        <div class="lb-score">
+          ${p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}',${JSON.stringify(p.showcase_json)})">Showcase</button>`:''}
+          <span>${p.coins.toLocaleString()}</span> coins
+        </div>
       </div>`;
     });
   }
@@ -1516,6 +1562,7 @@ function recordRoll(shape, effect, ptsVal, size=null) {
     collection[key] = { shape, effect, size:sz, count:1, bestPts:ptsVal, score:rarityScore(shape.id,effect.id,sz.id) };
   }
   scheduleCloudSave();
+  saveCollectionLocally();
 }
 
 // ═══════════════════════════════════════════════
@@ -1675,6 +1722,148 @@ function showPage(page) {
     stage.style.opacity='0'; stage.style.pointerEvents='none';
     cstat.style.opacity='0'; ccoins.style.opacity='0';
   }
+}
+
+// ═══════════════════════════════════════════════
+// SHOWCASE
+// ═══════════════════════════════════════════════
+let _scShapes=[], _scRaf=null, _scDrag=null, _scMoveH=null, _scUpH=null;
+
+function _scBuildEl(shapeObj, effectObj, sizeObj, label, rarityLbl, clr) {
+  const el = document.createElement('div');
+  el.className = 'showcase-shape-el';
+  const sz = 120;
+  const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svgEl.setAttribute('width', sz); svgEl.setAttribute('height', sz);
+  svgEl.setAttribute('viewBox', '-20 -20 180 180');
+  svgEl.style.overflow = 'visible';
+  svgEl.innerHTML = buildSVG(shapeObj.id, effectObj, sizeObj ? sizeObj.scale : 1.0);
+  const lbl = document.createElement('div');
+  lbl.className = 'showcase-shape-lbl';
+  lbl.textContent = label;
+  lbl.style.color = clr || 'var(--soft)';
+  el.appendChild(svgEl); el.appendChild(lbl);
+  return el;
+}
+
+function _scLaunch(entries, title, hint) {
+  const stage = document.getElementById('showcaseStage');
+  stage.innerHTML = '';
+  _scShapes = [];
+  document.getElementById('showcaseTitle').textContent = title || 'My Showcase';
+  document.getElementById('showcaseHint').textContent = hint || 'Drag shapes · they bounce';
+
+  if (!entries.length) {
+    stage.innerHTML = '<div class="showcase-empty">Roll Rare or better shapes to fill your showcase.</div>';
+  }
+
+  const W = innerWidth, H = innerHeight;
+  entries.forEach(({shape, effect, size, label, rarityLbl, color}) => {
+    const el = _scBuildEl(shape, effect, size, label, rarityLbl, color);
+    const w = 130, h = 155;
+    stage.appendChild(el);
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 1.2 + Math.random() * 1.8;
+    const s = { el, x: 40 + Math.random()*(W-w-80), y: 80 + Math.random()*(H-h-120), vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp, w, h, dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0 };
+    el.style.width = w+'px';
+    el.addEventListener('mousedown', e => { e.preventDefault(); _scDrag=s; s.dragging=true; s.dragOX=e.clientX-s.x; s.dragOY=e.clientY-s.y; s.lx=e.clientX; s.ly=e.clientY; s.pvx=0; s.pvy=0; });
+    el.addEventListener('touchstart', e => { e.preventDefault(); const t=e.touches[0]; _scDrag=s; s.dragging=true; s.dragOX=t.clientX-s.x; s.dragOY=t.clientY-s.y; s.lx=t.clientX; s.ly=t.clientY; s.pvx=0; s.pvy=0; }, {passive:false});
+    _scShapes.push(s);
+  });
+
+  _scMoveH = e => {
+    if (!_scDrag) return;
+    const cx = e.clientX ?? e.touches?.[0]?.clientX; const cy = e.clientY ?? e.touches?.[0]?.clientY;
+    if (cx==null) return;
+    _scDrag.pvx = cx - _scDrag.lx; _scDrag.pvy = cy - _scDrag.ly;
+    _scDrag.lx = cx; _scDrag.ly = cy;
+    _scDrag.x = cx - _scDrag.dragOX; _scDrag.y = cy - _scDrag.dragOY;
+  };
+  _scUpH = () => { if (_scDrag) { _scDrag.vx=_scDrag.pvx*0.9; _scDrag.vy=_scDrag.pvy*0.9; _scDrag.dragging=false; _scDrag=null; } };
+  window.addEventListener('mousemove', _scMoveH);
+  window.addEventListener('mouseup', _scUpH);
+  window.addEventListener('touchmove', _scMoveH, {passive:false});
+  window.addEventListener('touchend', _scUpH);
+
+  const sc = document.getElementById('showcase');
+  sc.classList.add('visible'); requestAnimationFrame(() => sc.classList.add('active'));
+
+  if (_scRaf) cancelAnimationFrame(_scRaf);
+  function loop() {
+    const W2=innerWidth, H2=innerHeight;
+    for (const s of _scShapes) {
+      if (s.dragging) { s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px'; continue; }
+      s.x+=s.vx; s.y+=s.vy;
+      if (s.x<0){s.x=0;s.vx=Math.abs(s.vx)*0.88;}
+      if (s.x+s.w>W2){s.x=W2-s.w;s.vx=-Math.abs(s.vx)*0.88;}
+      if (s.y<70){s.y=70;s.vy=Math.abs(s.vy)*0.88;}
+      if (s.y+s.h>H2){s.y=H2-s.h;s.vy=-Math.abs(s.vy)*0.88;}
+      s.vx*=0.9995; s.vy*=0.9995;
+      s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
+    }
+    _scRaf = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function closeShowcase() {
+  const sc = document.getElementById('showcase');
+  sc.classList.remove('active');
+  setTimeout(() => sc.classList.remove('visible'), 270);
+  if (_scRaf) { cancelAnimationFrame(_scRaf); _scRaf=null; }
+  if (_scMoveH) { window.removeEventListener('mousemove',_scMoveH); window.removeEventListener('mouseup',_scUpH); window.removeEventListener('touchmove',_scMoveH); window.removeEventListener('touchend',_scUpH); _scMoveH=null; _scUpH=null; }
+}
+
+function openMyShowcase() {
+  const rare = Object.values(collection).filter(e => e.score >= 11.5).sort((a,b)=>b.score-a.score).slice(0,18);
+  const entries = rare.map(e => {
+    const sizeP = e.size&&e.size.id ? e.size.label+' ' : '';
+    const lbl = e.effect.id ? sizeP+e.effect.label+' '+e.shape.label : sizeP+e.shape.label;
+    return { shape:e.shape, effect:e.effect, size:e.size, label:lbl, rarityLbl:rarityLabel(e.score), color:e.effect.color };
+  });
+  _scLaunch(entries, 'My Showcase', entries.length ? 'Drag shapes · they bounce' : '');
+}
+
+function openPlayerShowcase(playerName, showcaseJson) {
+  if (!showcaseJson || !showcaseJson.length) return;
+  const entries = showcaseJson.map(d => {
+    const shape = SHAPES.find(s=>s.id===d.s);
+    const effect = EFFECTS.find(e=>e.id===d.e);
+    const size = SIZE_MODS.find(s=>s.id===(d.z||null))||SIZE_MODS[0];
+    if (!shape||!effect) return null;
+    const sizeP = size&&size.id ? size.label+' ' : '';
+    const lbl = effect.id ? sizeP+effect.label+' '+shape.label : sizeP+shape.label;
+    return { shape, effect, size, label:lbl, rarityLbl:rarityLabel(rarityScore(shape.id,effect.id,size.id)), color:effect.color };
+  }).filter(Boolean);
+  _scLaunch(entries, `${playerName}'s Showcase`, 'Their rare shapes');
+}
+
+// ═══════════════════════════════════════════════
+// LOCAL COLLECTION PERSISTENCE
+// ═══════════════════════════════════════════════
+function saveCollectionLocally() {
+  try {
+    const d = {};
+    for (const [k, v] of Object.entries(collection)) {
+      d[k] = { shapeId:v.shape.id, effectId:v.effect.id, sizeId:v.size?v.size.id:null, count:v.count, bestPts:v.bestPts, score:v.score };
+    }
+    localStorage.setItem('sq_collection', JSON.stringify(d));
+  } catch(e) {}
+}
+
+function loadCollectionLocally() {
+  try {
+    const raw = localStorage.getItem('sq_collection');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    for (const [k, v] of Object.entries(d)) {
+      const shape = SHAPES.find(s => s.id === v.shapeId);
+      const effect = EFFECTS.find(e => e.id === v.effectId);
+      const size = SIZE_MODS.find(s => s.id === (v.sizeId || null)) || SIZE_MODS[0];
+      if (!shape || !effect) continue;
+      collection[k] = { shape, effect, size, count:v.count, bestPts:v.bestPts, score:v.score };
+    }
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════
@@ -1868,6 +2057,7 @@ async function doSignOut() {
 // ── init
 coinCount=parseInt(localStorage.getItem('sq_coins')||'4820');
 document.getElementById('coins').textContent=coinCount.toLocaleString();
+loadCollectionLocally();
 updateLevelDisplay();
 updateAuthUI();
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'));
