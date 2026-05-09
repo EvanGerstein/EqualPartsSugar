@@ -41,6 +41,10 @@ nav a:hover,nav a.on { color:var(--ink); }
 .cast-btn:hover { transform:scale(1.08);box-shadow:0 8px 26px rgba(0,0,0,.2); }
 .cast-btn:active { transform:scale(.92); }
 .cast-lbl { font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--soft); }
+.cd-track { width:54px;height:3px;background:rgba(128,128,128,.18);border-radius:3px;overflow:hidden;opacity:0;transition:opacity .12s; }
+.cd-track.active { opacity:1; }
+.cd-fill { height:100%;width:100%;border-radius:3px;transform-origin:left;transform:scaleX(0); }
+@keyframes cd-drain { from{transform:scaleX(1)} to{transform:scaleX(0)} }
 
 @keyframes pop { from{opacity:0;transform:scale(.4) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
 .popped { animation:pop .55s cubic-bezier(.17,.67,.3,1.35) both; }
@@ -489,6 +493,7 @@ nav a:hover,nav a.on { color:var(--ink); }
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
     </button>
     <div class="cast-lbl" id="castLbl">Roll</div>
+    <div class="cd-track" id="cdTrack"><div class="cd-fill" id="cdFill"></div></div>
   </div>
 </div>
 
@@ -567,38 +572,38 @@ const SIZE_MODS = [
 const RODS = [
   { id:'twig',      label:'Twig',          emoji:'🪵', color:'#a07850',
     desc:'A stick from the ground. Humble beginnings.',
-    price:0, castMs:5000, tiers:{} },
+    price:0, castMs:2000, tiers:{} },
   { id:'iron',      label:'Iron Rod',      emoji:'⚙️',  color:'#909090',
     desc:'Weighted metal tip. Rare effects more likely, quicker pace.',
-    price:8000, castMs:3500, tiers:{ 3:1.6 } },
+    price:4000, castMs:1300, tiers:{ 3:1.6 } },
   { id:'mossy',     label:'Mossy Rod',     emoji:'🌿', color:'#70a840',
     desc:'Ancient and overgrown. Better odds and noticeably quicker.',
-    price:32000, castMs:2500, tiers:{ 2:1.4, 3:2.4, 4:2.5 } },
+    price:24000, castMs:850, tiers:{ 2:1.4, 3:2.4, 4:2.5 } },
   { id:'prism',     label:'Prism Rod',     emoji:'🔷', color:'#60c0e0',
     desc:'Light refracts through it. Epic effects shine, cast pace picks up.',
-    price:100000, castMs:1500, tiers:{ 2:1.3, 3:2.8, 4:5, 5:3 } },
+    price:90000, castMs:500, tiers:{ 2:1.3, 3:2.8, 4:5, 5:3 } },
   { id:'void',      label:'Void Rod',      emoji:'🌑', color:'#8040c0',
     desc:'Forged in absence. Legendary effects stir and the wait is short.',
-    price:320000, castMs:750, tiers:{ 3:3, 4:7, 5:7, 6:4 } },
+    price:280000, castMs:300, tiers:{ 3:3, 4:7, 5:7, 6:4 } },
   { id:'celestial', label:'Celestial Rod', emoji:'✨', color:'#90b8ff',
     desc:'Star-forged. Mythic effects reachable with barely any wait.',
-    price:950000, castMs:300, tiers:{ 3:3.5, 4:9, 5:12, 6:10 } },
+    price:850000, castMs:120, tiers:{ 3:3.5, 4:9, 5:12, 6:10 } },
   // ── Quest rods ──
   { id:'rot',       label:'Rot Rod',       emoji:'☣️', color:'#80a030',
     desc:'Festers with plague. Plague effects 8× more likely.',
-    price:0, castMs:5000, secret:true,
+    price:0, castMs:2000, secret:true,
     unlockHint:'Infect 25 shapes in the Showcase',
     unlockKey:'sq_ach_plague', unlockGoal:25,
     special:{ 'Plague':8 } },
   { id:'ember',     label:'Ember Rod',     emoji:'🔥', color:'#d04818',
     desc:'Still smouldering. Inferno & Phoenix 8× more likely.',
-    price:0, castMs:5000, secret:true,
+    price:0, castMs:2000, secret:true,
     unlockHint:'Burn 25 shapes in the Showcase',
     unlockKey:'sq_ach_burns', unlockGoal:25,
     special:{ 'Inferno':8, 'Phoenix':8 } },
   { id:'hasty',     label:'Hasty Rod',     emoji:'⚡', color:'#c0a020',
     desc:"Casts almost instantly but luck isn't on your side. Rare+ effects much less likely — great for grinding coins fast.",
-    price:0, castMs:200, secret:true,
+    price:0, castMs:150, secret:true,
     unlockHint:'Cast 300 times total',
     unlockKey:'sq_ach_casts', unlockGoal:300,
     tiers:{ 3:0.35, 4:0.15, 5:0.08, 6:0.05 } },
@@ -1307,20 +1312,39 @@ function runCutscene(shape, effect, size, onDone){
 // RENDER
 // ═══════════════════════════════════════════════
 let coinCount=parseInt(localStorage.getItem('sq_coins')||'0'),castLocked=false,lockTimer=null;
+let _sessionRolls=0; // first 3 rolls are cooldown-free to hook new players
 
 function setCastLock(){
+  _sessionRolls++;
   const rod=RODS.find(r=>r.id===playerRod)||RODS[0];
   const ms=rod.castMs||0;
-  if(ms<=80){castLocked=false;updateCastBtn(false);return;}
+  // First 3 rolls always free — don't punish new players before they're hooked
+  if(ms<=80||_sessionRolls<=3){castLocked=false;updateCastBtn(false);_hideCdBar();return;}
   castLocked=true;updateCastBtn(true);
   if(lockTimer) clearTimeout(lockTimer);
-  lockTimer=setTimeout(()=>{castLocked=false;updateCastBtn(false);},ms);
+  lockTimer=setTimeout(()=>{castLocked=false;updateCastBtn(false);_hideCdBar();},ms);
+  _startCdBar(ms,rod.color||'#888');
 }
 function updateCastBtn(locked){
   const btn=document.getElementById('castBtn'),lbl=document.getElementById('castLbl');
   btn.style.opacity=locked?'.35':'1';
   btn.style.cursor=locked?'not-allowed':'pointer';
   lbl.textContent=locked?'...':'Roll';
+}
+function _startCdBar(ms,color){
+  const track=document.getElementById('cdTrack'),fill=document.getElementById('cdFill');
+  if(!track||!fill) return;
+  fill.style.animation='none';
+  fill.style.background=color;
+  void fill.offsetWidth; // force reflow so animation restarts
+  fill.style.animation=`cd-drain ${ms}ms linear forwards`;
+  track.classList.add('active');
+}
+function _hideCdBar(){
+  const track=document.getElementById('cdTrack'),fill=document.getElementById('cdFill');
+  if(!track||!fill) return;
+  track.classList.remove('active');
+  fill.style.animation='none';
 }
 
 function renderShape(shape,effect,size=null){
