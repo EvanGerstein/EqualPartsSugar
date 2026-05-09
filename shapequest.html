@@ -88,6 +88,10 @@ nav a:hover,nav a.on { color:var(--ink); }
   position:absolute;bottom:5px;right:7px;
   font-family:'DM Mono',monospace;font-size:.55rem;color:var(--soft);
 }
+.cat-card .showcase-pin {
+  position:absolute;top:5px;right:6px;
+  font-size:.6rem;color:#b8860b;line-height:1;
+}
 
 /* ── AUTH MODAL ── */
 .auth-modal { position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(245,244,240,.88);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .2s; }
@@ -158,8 +162,17 @@ nav a:hover,nav a.on { color:var(--ink); }
 .detail-stat { border:1px solid var(--line);border-radius:8px;padding:8px 4px; }
 .detail-stat-val { font-family:'DM Mono',monospace;font-size:.9rem;color:var(--ink); }
 .detail-stat-lbl { font-size:.52rem;color:var(--soft);text-transform:uppercase;letter-spacing:.8px;margin-top:2px; }
+.detail-showcase-btn {
+  display:block;width:100%;margin-top:14px;padding:9px 0;
+  font-size:.58rem;letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;
+  cursor:pointer;border-radius:8px;transition:background .15s,color .15s,border-color .15s;
+  border:1px solid var(--line);background:none;color:var(--soft);
+}
+.detail-showcase-btn:hover { border-color:#aaa;color:var(--ink); }
+.detail-showcase-btn.in-showcase { background:var(--ink);color:var(--bg);border-color:var(--ink); }
+.detail-showcase-btn.in-showcase:hover { background:#444; }
 .detail-close {
-  margin-top:16px;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;
+  margin-top:10px;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;
   color:var(--soft);cursor:pointer;transition:color .15s;background:none;border:none;font-family:'DM Mono',monospace;
 }
 .detail-close:hover { color:var(--ink); }
@@ -378,6 +391,7 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div class="detail-stat"><div class="detail-stat-val" id="detailCount"></div><div class="detail-stat-lbl">Rolled</div></div>
       <div class="detail-stat"><div class="detail-stat-val" id="detailOdds"></div><div class="detail-stat-lbl">Chance</div></div>
     </div>
+    <button class="detail-showcase-btn" id="detailShowcaseBtn" onclick="toggleShowcaseEntry()"></button>
     <button class="detail-close" onclick="closeDetail()">close</button>
   </div>
 </div>
@@ -1563,8 +1577,14 @@ function updateLevelDisplay() {
 }
 
 
-// key: "shapeId|effectId"  value: { shape, effect, count, bestPts, score }
+// key: "shapeId|effectId|sizeId"  value: { shape, effect, size, count, bestPts, score }
 const collection = {};
+
+// curated showcase: Set of collection keys the user has pinned
+let showcaseSet = new Set(JSON.parse(localStorage.getItem('sq_showcase_keys')||'[]'));
+function saveShowcaseSet() { localStorage.setItem('sq_showcase_keys', JSON.stringify([...showcaseSet])); }
+// current entry open in detail modal (for toggle)
+let _detailKey = null;
 
 function recordRoll(shape, effect, ptsVal, size=null) {
   const sid = size?size.id||'none':'none';
@@ -1619,6 +1639,14 @@ function buildCatCard(entry) {
     card.appendChild(badge);
   }
 
+  const entryKey = `${shape.id}|${effect.id||'none'}|${size&&size.id?size.id:'none'}`;
+  if (showcaseSet.has(entryKey)) {
+    const pin = document.createElement('div');
+    pin.className = 'showcase-pin';
+    pin.textContent = '★';
+    card.appendChild(pin);
+  }
+
   card.addEventListener('click', () => openDetail(entry));
   return card;
 }
@@ -1668,6 +1696,13 @@ function renderCatalogue() {
 // ═══════════════════════════════════════════════
 function openDetail(entry) {
   const { shape, effect, size, count, bestPts, score } = entry;
+  _detailKey = `${shape.id}|${effect.id||'none'}|${size&&size.id?size.id:'none'}`;
+  const btn = document.getElementById('detailShowcaseBtn');
+  if (showcaseSet.has(_detailKey)) {
+    btn.textContent = '★ In Showcase'; btn.classList.add('in-showcase');
+  } else {
+    btn.textContent = '☆ Add to Showcase'; btn.classList.remove('in-showcase');
+  }
   document.getElementById('detailRarity').textContent = rarityLabel(score);
   document.getElementById('detailRarity').style.color = effect.color;
 
@@ -1695,6 +1730,20 @@ function openDetail(entry) {
 function closeDetail(e) {
   if(e && e.target !== document.getElementById('detail') && !e.target.classList.contains('detail-close')) return;
   document.getElementById('detail').classList.remove('active');
+}
+
+function toggleShowcaseEntry() {
+  if (!_detailKey) return;
+  const btn = document.getElementById('detailShowcaseBtn');
+  if (showcaseSet.has(_detailKey)) {
+    showcaseSet.delete(_detailKey);
+    btn.textContent = '☆ Add to Showcase'; btn.classList.remove('in-showcase');
+  } else {
+    showcaseSet.add(_detailKey);
+    btn.textContent = '★ In Showcase'; btn.classList.add('in-showcase');
+  }
+  saveShowcaseSet();
+  if (currentPage === 'catalogue') renderCatalogue();
 }
 
 // ═══════════════════════════════════════════════
@@ -2120,13 +2169,19 @@ function closeShowcase() {
 }
 
 function openMyShowcase() {
-  const rare = Object.values(collection).filter(e => e.score >= 11.5).sort((a,b)=>b.score-a.score).slice(0,50);
-  const entries = rare.map(e => {
+  let pool;
+  if (showcaseSet.size > 0) {
+    pool = [...showcaseSet].map(k => collection[k]).filter(Boolean);
+  } else {
+    pool = Object.values(collection).filter(e => e.score >= 11.5).sort((a,b)=>b.score-a.score).slice(0,50);
+  }
+  const entries = pool.map(e => {
     const sizeP = e.size&&e.size.id ? e.size.label+' ' : '';
     const lbl = e.effect.id ? sizeP+e.effect.label+' '+e.shape.label : sizeP+e.shape.label;
     return { shape:e.shape, effect:e.effect, size:e.size, label:lbl, rarityLbl:rarityLabel(e.score), color:e.effect.color };
   });
-  _scLaunch(entries, 'My Showcase', entries.length ? 'Drag shapes · they bounce' : '');
+  const hint = entries.length ? 'Drag shapes · they bounce' : showcaseSet.size > 0 ? 'Pinned shapes not found — try re-adding from Catalogue' : 'Add shapes from the Catalogue!';
+  _scLaunch(entries, 'My Showcase', hint);
 }
 
 function openPlayerShowcase(playerName, showcaseJson) {
