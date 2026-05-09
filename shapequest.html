@@ -1347,7 +1347,7 @@ function _hideCdBar(){
   fill.style.animation='none';
 }
 
-function renderShape(shape,effect,size=null){
+function renderShape(shape,effect,size=null,preview=false){
   const sizeScale=size?size.scale:1.0;
   const svg=document.getElementById('shapeSvg');
   svg.innerHTML=buildSVG(shape.id,effect,sizeScale);
@@ -1389,6 +1389,10 @@ function renderShape(shape,effect,size=null){
   document.getElementById('shapePts').textContent=`+${ptsVal} pts · +${Math.round(ptsVal*.75)} xp`;
   const lbl=document.getElementById('shapeLabel');
   lbl.classList.remove('popped');void lbl.offsetWidth;lbl.classList.add('popped');
+
+  // preview=true means startup display only — don't record, don't charge, don't lock
+  if(preview) return;
+
   coinCount+=ptsVal;
   document.getElementById('coins').textContent=coinCount.toLocaleString();
   localStorage.setItem('sq_coins', coinCount);
@@ -2886,7 +2890,9 @@ async function loadUserData() {
       await saveUserData();
     }
 
-  } catch(e) {}
+  } catch(e) {
+    console.error('[ShapeQuest] loadUserData failed:', e);
+  }
 }
 
 sbClient.auth.onAuthStateChange(async (event, session) => {
@@ -3053,18 +3059,20 @@ try {
   }
 } catch(e) {}
 updateAuthUI();
-sbClient.auth.getSession().then(({data:{session}}) => {
+sbClient.auth.getSession().then(async ({data:{session}}) => {
   if (session?.user && !currentUser) {
+    // onAuthStateChange didn't fire yet — set up user manually
     currentUser = session.user;
     if (!playerName) {
       const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
       if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
     }
+    await loadUserData();
     updateAuthUI();
   }
   _autoModerateSchools(); // runs on every page load; cleans bad names when signed in
 });
-renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'));
+renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'),null,true);
 </script>
 </body>
 </html>
