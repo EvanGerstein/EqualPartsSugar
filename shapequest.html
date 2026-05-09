@@ -168,6 +168,16 @@ nav a:hover,nav a.on { color:var(--ink); }
 .auth-signout-btn { width:100%;padding:9px 14px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--soft);transition:border-color .15s,color .15s; }
 .auth-signout-btn:hover { border-color:#aaa;color:var(--ink); }
 .auth-sync-note { font-size:.58rem;color:var(--soft);text-align:center;margin-top:10px;letter-spacing:.3px; }
+.auth-restore-divider { display:flex;align-items:center;gap:8px;margin:18px 0 10px;color:var(--soft);font-size:.54rem;letter-spacing:1.5px;text-transform:uppercase; }
+.auth-restore-divider::before,.auth-restore-divider::after { content:'';flex:1;height:1px;background:var(--line); }
+.auth-restore-row { display:flex;gap:6px;align-items:stretch; }
+.auth-restore-row .auth-input { margin:0;flex:1; }
+.auth-restore-btn { padding:9px 12px;background:var(--ink);color:var(--bg);border:none;border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.64rem;letter-spacing:.5px;white-space:nowrap;transition:opacity .15s; }
+.auth-restore-btn:hover { opacity:.8; }
+.auth-restore-btn:disabled { opacity:.4;cursor:not-allowed; }
+.auth-restore-msg { font-size:.58rem;margin-top:7px;line-height:1.5;padding:6px 8px;border-radius:6px;display:none; }
+.auth-restore-msg.ok  { background:#edfbf2;color:#1a7a3a;display:block; }
+.auth-restore-msg.err { background:#fff0ee;color:#c03020;display:block; }
 #authNavBtn { cursor:pointer; }
 #authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#2d9e4f;color:#fff;font-size:.58rem;letter-spacing:0; }
 #authNavBtn.signed-in.has-shape { width:28px;height:28px;background:transparent;overflow:visible; }
@@ -427,6 +437,12 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div class="auth-user-email" id="authUserEmail"></div>
       <div class="auth-sync-note">Your collection &amp; progress syncs automatically across devices.</div>
       <button class="auth-signout-btn" style="margin-top:18px" onclick="doSignOut()">Sign Out</button>
+      <div class="auth-restore-divider">Restore from another account</div>
+      <div class="auth-restore-row">
+        <input id="restoreInput" class="auth-input" placeholder="Enter username…" maxlength="32" onkeydown="if(event.key==='Enter')doRestore()"/>
+        <button id="restoreBtn" class="auth-restore-btn" onclick="doRestore()">Import</button>
+      </div>
+      <div id="restoreMsg" class="auth-restore-msg"></div>
     </div>
     <div id="authSignedOut">
       <div class="auth-title" id="authModeTitle">Sign In</div>
@@ -440,7 +456,7 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div id="authError" class="auth-error" style="display:none"></div>
       <button id="authSubmitBtn" class="auth-submit" onclick="submitAuth()">Sign In</button>
       <div id="authModeSwitchTxt" class="auth-switch">Don't have an account? <a href="#" onclick="setAuthMode('signup');return false">Sign up</a></div>
-      <div class="auth-local-warn">⚠ Signing in will replace your local save with your account data.</div>
+      <div class="auth-local-warn">Signing in merges your local save with your cloud save — highest progress wins.</div>
     </div>
   </div>
 </div>
@@ -3040,6 +3056,110 @@ async function doSignOut() {
   localStorage.removeItem('sb-uxprqqwqeymsynkynxoi-auth-token');
   document.getElementById('authModal').classList.remove('active');
   await updateAuthUI();
+}
+
+async function doRestore() {
+  const input = document.getElementById('restoreInput');
+  const btn   = document.getElementById('restoreBtn');
+  const msg   = document.getElementById('restoreMsg');
+  const username = (input.value||'').trim();
+  if (!username) return;
+  if (!currentUser) { _showRestoreMsg('You must be signed in to restore.', false); return; }
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  msg.className = 'auth-restore-msg';
+
+  try {
+    // 1. Try user_data table first (full restore — works if RLS allows anon reads)
+    let imported = false;
+    const udRows = await sbGet('user_data', `player_name=eq.${encodeURIComponent(username)}&limit=1`);
+    if (udRows && udRows.length > 0) {
+      const d = udRows[0];
+      const srcCoins = d.coins || 0;
+      const srcLevel = d.level || 1;
+      if (srcCoins > coinCount) {
+        coinCount = srcCoins;
+        localStorage.setItem('sq_coins', coinCount);
+        document.getElementById('coins').textContent = coinCount.toLocaleString();
+      }
+      if (srcLevel > playerLevel) {
+        playerLevel = srcLevel; playerXP = d.xp || 0;
+        localStorage.setItem('sq_level', playerLevel); localStorage.setItem('sq_xp', playerXP);
+        updateLevelDisplay();
+      }
+      if (d.rod && !playerRod) { playerRod = d.rod; localStorage.setItem('sq_rod', playerRod); }
+      if (d.collection && typeof d.collection === 'object') {
+        for (const [k, v] of Object.entries(d.collection)) {
+          const shape = SHAPES.find(s => s.id === v.shapeId);
+          const effect = EFFECTS.find(e => e.id === v.effectId);
+          const size = SIZE_MODS.find(s => s.id === (v.sizeId||null)) || SIZE_MODS[0];
+          if (!shape || !effect) continue;
+          if (!collection[k] || (v.count||1) > collection[k].count) {
+            collection[k] = { shape, effect, size, count:v.count||1, bestPts:v.bestPts||0, score:v.score||rarityScore(v.shapeId,v.effectId,v.sizeId||null) };
+          }
+        }
+        saveCollectionLocally();
+      }
+      await saveUserData();
+      imported = true;
+      _showRestoreMsg(`✓ Full save imported from "${username}" — ${srcCoins.toLocaleString()} coins, ${Object.keys(d.collection||{}).length} shapes.`, true);
+    }
+
+    if (!imported) {
+      // 2. Fall back to players leaderboard table (coins + level + top showcase shapes)
+      const plRows = await sbGet('players', `name=eq.${encodeURIComponent(username)}&limit=1`);
+      if (!plRows || !plRows.length) {
+        _showRestoreMsg(`No player named "${username}" found. Check the spelling.`, false);
+        btn.disabled = false; btn.textContent = 'Import'; return;
+      }
+      const p = plRows[0];
+      if ((p.coins||0) > coinCount) {
+        coinCount = p.coins;
+        localStorage.setItem('sq_coins', coinCount);
+        document.getElementById('coins').textContent = coinCount.toLocaleString();
+      }
+      if ((p.level||1) > playerLevel) {
+        playerLevel = p.level;
+        localStorage.setItem('sq_level', playerLevel);
+        updateLevelDisplay();
+      }
+      // Reconstruct showcase shapes into collection
+      let shapeCount = 0;
+      if (p.showcase_json) {
+        try {
+          let sc = p.showcase_json;
+          if (typeof sc === 'string') sc = JSON.parse(sc);
+          if (typeof sc === 'string') sc = JSON.parse(sc); // handle double-encoded
+          (sc||[]).forEach(entry => {
+            const shape = SHAPES.find(s => s.id === entry.s);
+            const effect = EFFECTS.find(e => e.id === entry.e);
+            const size = SIZE_MODS.find(s => s.id === (entry.z||null)) || SIZE_MODS[0];
+            if (!shape || !effect) return;
+            const key = `${shape.id}_${effect.id}_${size.id||''}`;
+            if (!collection[key]) {
+              const sc2 = rarityScore(shape.id, effect.id, size.id||null);
+              collection[key] = { shape, effect, size, count:1, bestPts:pts(sc2), score:sc2 };
+              shapeCount++;
+            }
+          });
+          saveCollectionLocally();
+        } catch(e2) {}
+      }
+      await saveUserData();
+      _showRestoreMsg(`✓ Leaderboard save imported — ${(p.coins||0).toLocaleString()} coins, ${shapeCount} showcase shapes restored.`, true);
+    }
+  } catch(err) {
+    _showRestoreMsg('Something went wrong. Try again.', false);
+    console.error('[restore]', err);
+  }
+  btn.disabled = false; btn.textContent = 'Import';
+}
+
+function _showRestoreMsg(text, ok) {
+  const msg = document.getElementById('restoreMsg');
+  msg.textContent = text;
+  msg.className = 'auth-restore-msg ' + (ok ? 'ok' : 'err');
 }
 
 // ── init
