@@ -1778,7 +1778,15 @@ function _scLaunch(entries, title, hint) {
     stage.appendChild(el);
     const ang = Math.random() * Math.PI * 2;
     const sp = 1.2 + Math.random() * 1.8;
-    const s = { el, x: 40 + Math.random()*(W-w-80), y: 80 + Math.random()*(H-h-120), vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp, w, h, dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0 };
+    const eid = effect ? effect.id : null;
+    const s = {
+      el, effectId: eid,
+      x: 40 + Math.random()*(W-w-80), y: 80 + Math.random()*(H-h-120),
+      vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp,
+      w, h,
+      sqX: 1, sqY: 1,
+      dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0
+    };
     el.style.width = w+'px';
     el.addEventListener('mousedown', e => { e.preventDefault(); _scDrag=s; s.dragging=true; s.dragOX=e.clientX-s.x; s.dragOY=e.clientY-s.y; s.lx=e.clientX; s.ly=e.clientY; s.pvx=0; s.pvy=0; });
     el.addEventListener('touchstart', e => { e.preventDefault(); const t=e.touches[0]; _scDrag=s; s.dragging=true; s.dragOX=t.clientX-s.x; s.dragOY=t.clientY-s.y; s.lx=t.clientX; s.ly=t.clientY; s.pvx=0; s.pvy=0; }, {passive:false});
@@ -1809,15 +1817,115 @@ function _scLaunch(entries, title, hint) {
   if (_scRaf) cancelAnimationFrame(_scRaf);
   function loop() {
     const W2=innerWidth, H2=innerHeight;
+    const N=_scShapes.length;
+
+    // ── Celestial & Void gravity fields ──
+    for (let i=0; i<N; i++) {
+      const cel=_scShapes[i];
+      const isCel = cel.effectId==='Celestial';
+      const isVoid = cel.effectId==='Void';
+      if (!isCel && !isVoid) continue;
+      const cx=cel.x+cel.w/2, cy=cel.y+cel.h/2;
+      const radius  = isCel ? 380 : 220;
+      const strength= isCel ? 0.11 : 0.035;
+      for (let j=0; j<N; j++) {
+        if (i===j) continue;
+        const b=_scShapes[j];
+        if (b.dragging) continue;
+        const bx=b.x+b.w/2, by=b.y+b.h/2;
+        const dx=cx-bx, dy=cy-by;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if (dist<radius && dist>65) {
+          const f=strength*(1-(dist/radius));
+          b.vx += (dx/dist)*f;
+          b.vy += (dy/dist)*f;
+        }
+      }
+    }
+
+    // ── Shape–shape collisions ──
+    const R=66;
+    for (let i=0; i<N; i++) {
+      for (let j=i+1; j<N; j++) {
+        const a=_scShapes[i], b=_scShapes[j];
+        if (a.dragging||b.dragging) continue;
+        const ax=a.x+a.w/2, ay=a.y+a.h/2;
+        const bx=b.x+b.w/2, by=b.y+b.h/2;
+        const dx=bx-ax, dy=by-ay;
+        const distSq=dx*dx+dy*dy;
+        if (distSq>R*R*4||distSq<1) continue;
+        const dist=Math.sqrt(distSq);
+        if (dist>=R*2) continue;
+        const nx=dx/dist, ny=dy/dist;
+
+        // push apart
+        const overlap=(R*2-dist)*0.5;
+        a.x-=nx*overlap; a.y-=ny*overlap;
+        b.x+=nx*overlap; b.y+=ny*overlap;
+
+        const dvx=b.vx-a.vx, dvy=b.vy-a.vy;
+        const dot=dvx*nx+dvy*ny;
+        if (dot>0) continue;
+
+        const ae=a.effectId, be=b.effectId;
+
+        // effect-specific collisions
+        let rest=0.82;
+        if (ae==='Abyssal'||be==='Abyssal') {
+          rest=0.1;
+          // squish the abyssal shape along impact axis
+          if (ae==='Abyssal') { a.sqX=1+Math.abs(ny)*0.45; a.sqY=1-Math.abs(nx)*0.4; }
+          if (be==='Abyssal') { b.sqX=1+Math.abs(ny)*0.45; b.sqY=1-Math.abs(nx)*0.4; }
+          // blend velocities (gooey partial merge)
+          const mx=(a.vx+b.vx)*0.5, my=(a.vy+b.vy)*0.5;
+          a.vx=a.vx*0.4+mx*0.6; a.vy=a.vy*0.4+my*0.6;
+          b.vx=b.vx*0.4+mx*0.6; b.vy=b.vy*0.4+my*0.6;
+          continue;
+        } else if (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix') {
+          rest=1.35; // explosive
+        } else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal') {
+          a.vx*=0.65; a.vy*=0.65; b.vx*=0.65; b.vy*=0.65;
+          rest=0.6;
+        } else if (ae==='Storm'||be==='Storm') {
+          a.vx+=(Math.random()-.5)*2.5; a.vy+=(Math.random()-.5)*2.5;
+          b.vx+=(Math.random()-.5)*2.5; b.vy+=(Math.random()-.5)*2.5;
+          rest=1.05;
+        } else if (ae==='Celestial'||be==='Celestial') {
+          rest=0.55;
+        }
+
+        const j2=-(1+rest)*dot*0.5;
+        a.vx-=j2*nx; a.vy-=j2*ny;
+        b.vx+=j2*nx; b.vy+=j2*ny;
+
+        // speed cap
+        const maxSpd=9;
+        const asp=Math.hypot(a.vx,a.vy); if(asp>maxSpd){a.vx=a.vx/asp*maxSpd;a.vy=a.vy/asp*maxSpd;}
+        const bsp=Math.hypot(b.vx,b.vy); if(bsp>maxSpd){b.vx=b.vx/bsp*maxSpd;b.vy=b.vy/bsp*maxSpd;}
+      }
+    }
+
+    // ── Integrate & render ──
     for (const s of _scShapes) {
-      if (s.dragging) { s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px'; continue; }
+      if (s.dragging) {
+        s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
+        s.el.style.transform='';
+        continue;
+      }
       s.x+=s.vx; s.y+=s.vy;
       if (s.x<0){s.x=0;s.vx=Math.abs(s.vx)*0.88;}
       if (s.x+s.w>W2){s.x=W2-s.w;s.vx=-Math.abs(s.vx)*0.88;}
       if (s.y<70){s.y=70;s.vy=Math.abs(s.vy)*0.88;}
       if (s.y+s.h>H2){s.y=H2-s.h;s.vy=-Math.abs(s.vy)*0.88;}
       s.vx*=0.9995; s.vy*=0.9995;
+
+      // squish spring
+      s.sqX+=(1-s.sqX)*0.14;
+      s.sqY+=(1-s.sqY)*0.14;
+
       s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
+      const needsq=Math.abs(s.sqX-1)>0.005||Math.abs(s.sqY-1)>0.005;
+      s.el.style.transform=needsq?`scale(${s.sqX.toFixed(3)},${s.sqY.toFixed(3)})`:'';
     }
     _scRaf = requestAnimationFrame(loop);
   }
