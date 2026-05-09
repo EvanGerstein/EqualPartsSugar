@@ -2833,31 +2833,59 @@ function scheduleCloudSave() {
   saveTimer = setTimeout(saveUserData, 6000);
 }
 
+// Gets the user JWT from the stored Supabase session (bypasses sbClient which can hang)
+function _getJWT() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('sb-uxprqqwqeymsynkynxoi-auth-token') || 'null');
+    return stored?.access_token || null;
+  } catch(e) { return null; }
+}
+
 async function saveUserData() {
   if (!currentUser) return;
+  const jwt = _getJWT();
+  if (!jwt) { console.error('[ShapeQuest] saveUserData: no JWT in localStorage'); return; }
   try {
     const colData = {};
     for (const [k, v] of Object.entries(collection)) {
       colData[k] = { shapeId:v.shape.id, effectId:v.effect.id, sizeId:v.size?v.size.id:null, count:v.count, bestPts:v.bestPts, score:v.score };
     }
-    const { error } = await sbClient.from('user_data').upsert({
-      user_id: currentUser.id,
-      player_name: playerName||'',
-      school: playerSchool||'',
-      coins: coinCount,
-      level: playerLevel,
-      xp: playerXP,
-      collection: colData,
-      ts: Date.now()
+    const r = await fetch(`${SB_URL}/rest/v1/user_data`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({
+        user_id: currentUser.id,
+        player_name: playerName||'',
+        school: playerSchool||'',
+        coins: coinCount,
+        level: playerLevel,
+        xp: playerXP,
+        collection: colData,
+        ts: Date.now()
+      })
     });
-    if (error) console.error('[ShapeQuest] saveUserData failed:', error);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      console.error('[ShapeQuest] saveUserData failed:', r.status, err);
+    }
   } catch(e) { console.error('[ShapeQuest] saveUserData exception:', e); }
 }
 
 async function loadUserData() {
   if (!currentUser) return;
+  const jwt = _getJWT();
+  if (!jwt) { console.error('[ShapeQuest] loadUserData: no JWT in localStorage'); return; }
   try {
-    const { data } = await sbClient.from('user_data').select('*').eq('user_id', currentUser.id).single();
+    const r = await fetch(`${SB_URL}/rest/v1/user_data?user_id=eq.${currentUser.id}&select=*`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${jwt}`, 'Accept': 'application/json' }
+    });
+    const rows = r.ok ? await r.json() : [];
+    const data = Array.isArray(rows) ? (rows[0] || null) : null;
 
     if (!data) {
       // No cloud save at all — push local up so it exists next time
@@ -2961,12 +2989,13 @@ sbClient.auth.onAuthStateChange(async (event, session) => {
 
 async function updateAuthUI() {
   if (!currentUser) {
+    // Read stored session directly — sbClient.auth.getSession() can hang on live site
     try {
-      const { data: { session } } = await sbClient.auth.getSession();
-      if (session?.user) {
-        currentUser = session.user;
+      const stored = JSON.parse(localStorage.getItem('sb-uxprqqwqeymsynkynxoi-auth-token') || 'null');
+      if (stored?.user) {
+        currentUser = stored.user;
         if (!playerName) {
-          const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+          const gName = stored.user.user_metadata?.full_name || stored.user.user_metadata?.name || '';
           if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
         }
       }
@@ -3091,36 +3120,50 @@ async function doForceSync() {
   btn.textContent = 'Syncing…';
   msg.textContent = '';
   try {
-    // Read straight from localStorage — avoids any closure-variable reassignment
-    const localCoins  = parseInt(localStorage.getItem('sq_coins')  || '0');
-    const localLevel  = parseInt(localStorage.getItem('sq_level')  || '1');
-    const localXP     = parseInt(localStorage.getItem('sq_xp')     || '0');
-    const localName   = localStorage.getItem('sq_name')   || playerName  || '';
-    const localSchool = localStorage.getItem('sq_school') || playerSchool || '';
-    const localColObj = JSON.parse(localStorage.getItem('sq_collection') || '{}');
+    const localCoins    = parseInt(localStorage.getItem('sq_coins')  || '0');
+    const localLevel    = parseInt(localStorage.getItem('sq_level')  || '1');
+    const localXP       = parseInt(localStorage.getItem('sq_xp')     || '0');
+    const localName     = localStorage.getItem('sq_name')   || playerName   || '';
+    const localSchool   = localStorage.getItem('sq_school') || playerSchool || '';
+    const localColObj   = JSON.parse(localStorage.getItem('sq_collection') || '{}');
     const localCollSize = Object.keys(localColObj).length;
 
-    console.log('[ShapeQuest] Force sync — pushing local save: coins:', localCoins, 'level:', localLevel, 'collection:', localCollSize, 'shapes');
+    // Don't overwrite cloud with empty data (e.g. incognito with no save)
+    if (localCoins === 0 && localCollSize === 0) {
+      msg.textContent = 'No local save on this device to push';
+      msg.style.color = '#c03020';
+      btn.disabled = false; btn.textContent = 'Sync Now';
+      return;
+    }
 
-    // Push directly via sbClient — no closure variable mutation needed
-    const { error } = await sbClient.from('user_data').upsert({
-      user_id:     currentUser.id,
-      player_name: localName,
-      school:      localSchool,
-      coins:       localCoins,
-      level:       localLevel,
-      xp:          localXP,
-      collection:  localColObj,
-      ts:          Date.now()
+    const jwt = _getJWT();
+    if (!jwt) throw new Error('No session token — sign out and sign back in');
+
+    console.log('[ShapeQuest] Force sync — pushing:', localCoins, 'coins,', localCollSize, 'shapes');
+    const r = await fetch(`${SB_URL}/rest/v1/user_data`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({
+        user_id: currentUser.id, player_name: localName, school: localSchool,
+        coins: localCoins, level: localLevel, xp: localXP,
+        collection: localColObj, ts: Date.now()
+      })
     });
-    if (error) throw error;
-
-    console.log('[ShapeQuest] Force sync complete —', localCollSize, 'shapes,', localCoins, 'coins saved to cloud.');
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(`${r.status}: ${e.message || JSON.stringify(e)}`);
+    }
+    console.log('[ShapeQuest] Force sync complete —', localCollSize, 'shapes,', localCoins, 'coins saved.');
     msg.textContent = `Saved · ${localCollSize} shapes · ${localCoins.toLocaleString()} coins`;
     msg.style.color = '#1a7a3a';
   } catch(e) {
     console.error('[ShapeQuest] Force sync failed:', e);
-    msg.textContent = 'Sync failed — see console';
+    msg.textContent = `Sync failed: ${e.message}`;
     msg.style.color = '#c03020';
   }
   btn.disabled = false;
@@ -3262,19 +3305,9 @@ try {
   }
 } catch(e) {}
 updateAuthUI();
-sbClient.auth.getSession().then(async ({data:{session}}) => {
-  if (session?.user && !currentUser) {
-    // onAuthStateChange didn't fire yet — set up user manually
-    currentUser = session.user;
-    if (!playerName) {
-      const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
-      if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
-    }
-    await loadUserData();
-    updateAuthUI();
-  }
-  _autoModerateSchools(); // runs on every page load; cleans bad names when signed in
-});
+// onAuthStateChange fires with INITIAL_SESSION on every page load — no need to call
+// getSession() separately (it can hang on the live site). Just run school moderation.
+_autoModerateSchools();
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'),null,true);
 </script>
 </body>
