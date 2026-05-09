@@ -60,27 +60,34 @@ nav a:hover,nav a.on { color:var(--ink); }
 .shop-section-label { font-size:.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--soft);padding:18px 0 8px;border-top:1px solid var(--line);margin-top:8px; }
 .shop-section-label:first-child { border-top:none;margin-top:0; }
 .shop-grid-wrap { flex:1;overflow-y:auto;padding:20px 32px 40px; }
-.shop-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px; }
-.rod-card { background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:16px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .12s; }
+.shop-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px; }
+.rod-card { background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:18px 10px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:border-color .15s,transform .12s; }
 .rod-card.active-rod { border-width:2px; }
-.rod-card.locked { opacity:.65; }
-.rod-card:hover:not(.locked) { border-color:#aaa;transform:translateY(-2px); }
-.rod-emoji { font-size:1.6rem;line-height:1.2; }
-.rod-name { font-family:'Instrument Serif',serif;font-size:.95rem; }
-.rod-desc { font-size:.6rem;color:var(--soft);line-height:1.55; }
-.rod-perks { display:flex;flex-wrap:wrap;gap:4px;margin-top:2px; }
-.rod-perk { font-size:.52rem;letter-spacing:.5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--soft); }
-.rod-price { font-size:.65rem;font-weight:500;color:var(--soft);margin-top:2px; }
-.rod-btn { margin-top:auto;padding:7px 10px;border-radius:7px;border:1px solid var(--line);background:none;font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap; }
+.rod-card.locked { opacity:.6; }
+.rod-card:hover { border-color:#aaa;transform:translateY(-2px); }
+.rod-emoji { font-size:2rem;line-height:1.1; }
+.rod-name { font-family:'Instrument Serif',serif;font-size:.88rem;text-align:center; }
+.rod-equipped-tag { font-size:.45rem;letter-spacing:2px;text-transform:uppercase;color:#fff;background:var(--ink);border-radius:3px;padding:2px 5px;display:inline-block; }
+/* Rod detail modal */
+#rodDetail { position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(245,244,240,.88);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .2s; }
+#rodDetail.active { opacity:1;pointer-events:all; }
+.rod-detail-card { background:#fff;border:1px solid var(--line);border-radius:18px;padding:32px 28px;width:300px;max-width:90vw;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative; }
+.rod-detail-close { position:absolute;top:12px;right:14px;background:none;border:none;cursor:pointer;font-size:1rem;color:var(--soft);padding:4px; }
+.rod-detail-emoji { font-size:2.6rem;line-height:1.1; }
+.rod-detail-name { font-family:'Instrument Serif',serif;font-size:1.3rem;text-align:center; }
+.rod-detail-desc { font-size:.65rem;color:var(--soft);line-height:1.6;text-align:center; }
+.rod-perks { display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:2px; }
+.rod-perk { font-size:.55rem;letter-spacing:.5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 7px;color:var(--soft); }
+.rod-detail-price { font-size:.7rem;font-weight:500;color:var(--soft); }
+.rod-btn { width:100%;padding:10px;border-radius:9px;border:1px solid var(--line);background:none;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s;margin-top:4px; }
 .rod-btn:hover:not(:disabled):not(.equipped) { background:var(--ink);color:#f5f4f0;border-color:var(--ink); }
 .rod-btn.equipped { background:var(--ink);color:#f5f4f0;border-color:var(--ink);cursor:default; }
 .rod-btn:disabled { opacity:.38;cursor:not-allowed; }
-.rod-unlock-hint { font-size:.55rem;color:var(--soft);font-style:italic;line-height:1.5; }
-.rod-prog-wrap { display:flex;align-items:center;gap:6px;margin-top:2px; }
+.rod-prog-wrap { display:flex;align-items:center;gap:6px;width:100%; }
 .rod-prog { flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden; }
 .rod-prog-fill { height:100%;background:#70a840;border-radius:2px;transition:width .4s; }
 .rod-prog-label { font-size:.52rem;color:var(--soft);white-space:nowrap; }
-.rod-equipped-tag { font-size:.48rem;letter-spacing:2px;text-transform:uppercase;color:#fff;background:var(--ink);border-radius:3px;padding:2px 5px;display:inline-block; }
+.rod-unlock-hint { font-size:.6rem;color:var(--soft);font-style:italic;line-height:1.5;text-align:center; }
 @keyframes rod-unlock { 0%{transform:scale(.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
 .rod-card.just-unlocked { animation:rod-unlock .5s cubic-bezier(.17,.67,.3,1.35) both; }
 /* toast */
@@ -344,6 +351,18 @@ nav a:hover,nav a.on { color:var(--ink); }
 
 <div class="flash" id="flash"></div>
 <div id="rodToast"></div>
+<div id="rodDetail" onclick="if(event.target===this)closeRodDetail()">
+  <div class="rod-detail-card">
+    <button class="rod-detail-close" onclick="closeRodDetail()">✕</button>
+    <div id="rdEmoji" class="rod-detail-emoji"></div>
+    <div id="rdName" class="rod-detail-name"></div>
+    <div id="rdDesc" class="rod-detail-desc"></div>
+    <div id="rdPerks" class="rod-perks"></div>
+    <div id="rdExtra"></div>
+    <div id="rdPrice" class="rod-detail-price"></div>
+    <button id="rdBtn" class="rod-btn"></button>
+  </div>
+</div>
 <canvas id="vfx"></canvas>
 
 <!-- Cutscene overlay -->
@@ -1713,18 +1732,17 @@ function renderShopPage() {
   const grid = document.getElementById('shopGrid');
   grid.innerHTML = '';
 
-  // section headers
-  let inSecretSection = false;
-  RODS.forEach((rod,idx) => {
-    // section divider before secret rods
-    if(rod.secret && !inSecretSection) {
-      inSecretSection = true;
+  let inQuestSection = false;
+  RODS.forEach((rod, idx) => {
+    // Section labels
+    if(rod.secret && !inQuestSection) {
+      inQuestSection = true;
       const sec = document.createElement('div');
       sec.className = 'shop-section-label';
       sec.style.gridColumn = '1/-1';
-      sec.textContent = 'Secret Rods — unlock through Showcase';
+      sec.textContent = 'Quest Rods — unlock through Showcase';
       grid.appendChild(sec);
-    } else if(idx===0) {
+    } else if(idx === 0) {
       const sec = document.createElement('div');
       sec.className = 'shop-section-label';
       sec.style.gridColumn = '1/-1';
@@ -1732,66 +1750,88 @@ function renderShopPage() {
       grid.appendChild(sec);
     }
 
-    const owned = ownedRods.has(rod.id);
     const isActive = playerRod === rod.id;
     const progress = rod.secret ? parseInt(localStorage.getItem(rod.unlockKey)||'0') : 0;
-    const secretUnlocked = rod.secret ? progress >= rod.unlockGoal : false;
-    const canSee = !rod.secret || secretUnlocked || progress > 0;
-
-    // Perk pills
-    let perksHtml = '';
-    if(rod.tiers && Object.keys(rod.tiers).length) {
-      perksHtml = Object.entries(rod.tiers).map(([t,m])=>
-        `<span class="rod-perk">${ROD_TIER_NAMES[t]||'T'+t} ×${m}</span>`
-      ).join('');
-    } else if(rod.special) {
-      perksHtml = Object.entries(rod.special).map(([e,m])=>
-        `<span class="rod-perk">${e} ×${m}</span>`
-      ).join('');
-    }
-
-    // Progress bar for secret rods
-    let secretHtml = '';
-    if(rod.secret && !secretUnlocked) {
-      const pct = Math.min(100, Math.round(progress / rod.unlockGoal * 100));
-      secretHtml = `
-        <div class="rod-unlock-hint">🔒 ${rod.unlockHint}</div>
-        <div class="rod-prog-wrap">
-          <div class="rod-prog"><div class="rod-prog-fill" style="width:${pct}%"></div></div>
-          <div class="rod-prog-label">${progress}/${rod.unlockGoal}</div>
-        </div>`;
-    }
-
-    // Button
-    let btnHtml = '';
-    if(rod.secret && !secretUnlocked) {
-      btnHtml = `<button class="rod-btn" disabled>Locked</button>`;
-    } else if(isActive) {
-      btnHtml = `<button class="rod-btn equipped">Equipped</button>`;
-    } else if(owned || secretUnlocked) {
-      btnHtml = `<button class="rod-btn" onclick="equipRod('${rod.id}')">Equip</button>`;
-    } else {
-      const can = coinCount >= rod.price;
-      btnHtml = `<button class="rod-btn${can?'':''}" ${can?'':'disabled '}onclick="buyRod('${rod.id}')">${can?'Buy':'Buy'} — ${rod.price.toLocaleString()} coins</button>`;
-    }
+    const questUnlocked = rod.secret ? progress >= rod.unlockGoal : false;
+    const canSee = !rod.secret || questUnlocked || progress > 0;
 
     const card = document.createElement('div');
-    card.className = `rod-card${isActive?' active-rod':''}${(rod.secret&&!secretUnlocked)?' locked':''}`;
+    card.className = `rod-card${isActive?' active-rod':''}${(rod.secret&&!questUnlocked)?' locked':''}`;
     if(isActive) card.style.borderColor = rod.color;
-    const desc = (rod.secret && !canSee) ? '???' : rod.secret && !secretUnlocked ? `${rod.desc} (locked)` : rod.desc;
-    const nameStr = (rod.secret && !canSee) ? '???' : rod.label;
     card.innerHTML = `
       ${isActive ? `<div class="rod-equipped-tag">Equipped</div>` : ''}
       <div class="rod-emoji">${rod.secret && !canSee ? '🔒' : rod.emoji}</div>
-      <div class="rod-name" style="color:${rod.color}">${nameStr}</div>
-      <div class="rod-desc">${desc}</div>
-      ${perksHtml ? `<div class="rod-perks">${perksHtml}</div>` : ''}
-      ${secretHtml}
-      ${rod.price > 0 && !owned && !rod.secret ? `<div class="rod-price">${rod.price.toLocaleString()} coins</div>` : ''}
-      ${btnHtml}
+      <div class="rod-name" style="color:${rod.color}">${rod.secret && !canSee ? '???' : rod.label}</div>
     `;
+    card.addEventListener('click', () => openRodDetail(rod.id));
     grid.appendChild(card);
   });
+}
+
+function openRodDetail(id) {
+  const rod = RODS.find(r=>r.id===id);
+  if(!rod) return;
+  const owned = ownedRods.has(id);
+  const isActive = playerRod === id;
+  const progress = rod.secret ? parseInt(localStorage.getItem(rod.unlockKey)||'0') : 0;
+  const questUnlocked = rod.secret ? progress >= rod.unlockGoal : false;
+  const canSee = !rod.secret || questUnlocked || progress > 0;
+
+  document.getElementById('rdEmoji').textContent = rod.secret && !canSee ? '🔒' : rod.emoji;
+  document.getElementById('rdName').textContent = rod.secret && !canSee ? '???' : rod.label;
+  document.getElementById('rdName').style.color = rod.color;
+  document.getElementById('rdDesc').textContent = rod.secret && !canSee ? 'Complete a Showcase quest to reveal this rod.' : rod.desc;
+
+  // Perk pills
+  const perksEl = document.getElementById('rdPerks');
+  perksEl.innerHTML = '';
+  if(canSee) {
+    const entries = rod.tiers && Object.keys(rod.tiers).length
+      ? Object.entries(rod.tiers).map(([t,m])=>`<span class="rod-perk">${ROD_TIER_NAMES[t]||'T'+t} ×${m}</span>`)
+      : rod.special ? Object.entries(rod.special).map(([e,m])=>`<span class="rod-perk">${e} ×${m}</span>`) : [];
+    perksEl.innerHTML = entries.join('');
+  }
+
+  // Quest progress / hint
+  const extraEl = document.getElementById('rdExtra');
+  if(rod.secret && !questUnlocked) {
+    const pct = Math.min(100, Math.round(progress / rod.unlockGoal * 100));
+    extraEl.innerHTML = `
+      <div class="rod-unlock-hint" style="margin-top:4px">🎯 ${rod.unlockHint}</div>
+      <div class="rod-prog-wrap" style="margin-top:6px">
+        <div class="rod-prog"><div class="rod-prog-fill" style="width:${pct}%"></div></div>
+        <div class="rod-prog-label">${progress}/${rod.unlockGoal}</div>
+      </div>`;
+  } else {
+    extraEl.innerHTML = '';
+  }
+
+  // Price
+  const priceEl = document.getElementById('rdPrice');
+  priceEl.textContent = rod.price > 0 && !owned ? rod.price.toLocaleString()+' coins' : '';
+
+  // Button
+  const btn = document.getElementById('rdBtn');
+  btn.className = 'rod-btn';
+  btn.disabled = false;
+  if(rod.secret && !questUnlocked) {
+    btn.textContent = 'Locked'; btn.disabled = true;
+  } else if(isActive) {
+    btn.textContent = 'Equipped'; btn.classList.add('equipped');
+  } else if(owned || questUnlocked) {
+    btn.textContent = 'Equip'; btn.onclick = ()=>{ equipRod(id); closeRodDetail(); };
+  } else {
+    const can = coinCount >= rod.price;
+    btn.textContent = can ? `Buy — ${rod.price.toLocaleString()} coins` : `Need ${(rod.price-coinCount).toLocaleString()} more coins`;
+    btn.disabled = !can;
+    if(can) btn.onclick = ()=>{ buyRod(id); closeRodDetail(); };
+  }
+
+  document.getElementById('rodDetail').classList.add('active');
+}
+
+function closeRodDetail() {
+  document.getElementById('rodDetail').classList.remove('active');
 }
 
 function buyRod(id) {
@@ -1825,7 +1865,7 @@ function checkRodUnlocks() {
     if(progress >= rod.unlockGoal && !ownedRods.has(rod.id)) {
       ownedRods.add(rod.id);
       localStorage.setItem('sq_owned_rods', JSON.stringify([...ownedRods]));
-      showRodToast(`🔓 Secret rod unlocked: ${rod.label}!`);
+      showRodToast(`🔓 Quest rod unlocked: ${rod.label}!`);
     }
   });
 }
