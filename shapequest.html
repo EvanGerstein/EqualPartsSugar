@@ -437,12 +437,14 @@ nav a:hover,nav a.on { color:var(--ink); }
       <div class="auth-user-email" id="authUserEmail"></div>
       <div class="auth-sync-note">Your collection &amp; progress syncs automatically across devices.</div>
       <button class="auth-signout-btn" style="margin-top:18px" onclick="doSignOut()">Sign Out</button>
-      <div class="auth-restore-divider">Restore from another account</div>
-      <div class="auth-restore-row">
-        <input id="restoreInput" class="auth-input" placeholder="Enter username…" maxlength="32" onkeydown="if(event.key==='Enter')doRestore()"/>
-        <button id="restoreBtn" class="auth-restore-btn" onclick="doRestore()">Import</button>
+      <div id="restoreSection" style="display:none">
+        <div class="auth-restore-divider">Restore from another account</div>
+        <div class="auth-restore-row">
+          <input id="restoreInput" class="auth-input" placeholder="Enter username…" maxlength="32" onkeydown="if(event.key==='Enter')doRestore()"/>
+          <button id="restoreBtn" class="auth-restore-btn" onclick="doRestore()">Import</button>
+        </div>
+        <div id="restoreMsg" class="auth-restore-msg"></div>
       </div>
-      <div id="restoreMsg" class="auth-restore-msg"></div>
     </div>
     <div id="authSignedOut">
       <div class="auth-title" id="authModeTitle">Sign In</div>
@@ -2977,6 +2979,9 @@ function openAuthModal() {
     const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '';
     document.getElementById('authUserName').textContent = name;
     document.getElementById('authUserEmail').textContent = currentUser.email || '';
+    // Restore section only visible to admins (account migration tool, not for general use)
+    const restoreSection = document.getElementById('restoreSection');
+    if (restoreSection) restoreSection.style.display = _isAdmin() ? '' : 'none';
     signedIn.style.display = '';
     signedOut.style.display = 'none';
   } else {
@@ -3064,7 +3069,7 @@ async function doRestore() {
   const msg   = document.getElementById('restoreMsg');
   const username = (input.value||'').trim();
   if (!username) return;
-  if (!currentUser) { _showRestoreMsg('You must be signed in to restore.', false); return; }
+  if (!currentUser || !_isAdmin()) { _showRestoreMsg('Not authorised.', false); return; }
 
   btn.disabled = true;
   btn.textContent = '…';
