@@ -1579,9 +1579,25 @@ async function addAndJoinSchool(name) {
 
 async function deleteSchool(name) {
   if(!confirm(`Remove "${name}" from the database?`)) return;
-  await sbClient.from('schools').delete().eq('name', name);
-  await sbClient.from('school_scores').delete().eq('school_name', name);
-  renderGlobalTab();
+  try {
+    // get the current session JWT so the delete has full auth context
+    const { data: { session } } = await sbClient.auth.getSession();
+    const jwt = session?.access_token || SB_KEY;
+    const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    const enc = encodeURIComponent(name);
+    const [r1, r2] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/schools?name=eq.${enc}`, { method:'DELETE', headers }),
+      fetch(`${SB_URL}/rest/v1/school_scores?school_name=eq.${enc}`, { method:'DELETE', headers }),
+    ]);
+    if (!r1.ok) {
+      const err = await r1.json().catch(()=>({}));
+      alert(`Failed to remove school: ${err.message||r1.status}`);
+      return;
+    }
+    renderGlobalTab();
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+  }
 }
 
 function _isAdmin() { return currentUser?.email==='evan.h.gerstein@gmail.com'||currentUser?.email==='egers002@mater.colegia.org'; }
