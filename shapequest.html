@@ -473,6 +473,9 @@ const EFFECTS = [
   { id:'Arcane',    label:'Arcane',    color:'#a030e0', fill:'#4010a0', vfx:5, w:1   },
   { id:'Cosmic',    label:'Cosmic',    color:'#4060c0', fill:'#2030a0', vfx:6, w:1   },
   { id:'Celestial', label:'Celestial', color:'#c0d8ff', fill:'#e8f0ff', vfx:6, w:1   },
+  { id:'Gravity',   label:'Gravity',   color:'#9878c8', fill:'#100818', vfx:5, w:1   },
+  { id:'Magnet',    label:'Magnet',    color:'#4090d8', fill:'#102840', vfx:3, w:6   },
+  { id:'Tide',      label:'Tide',      color:'#2898c8', fill:'#082838', vfx:3, w:10  },
 ];
 
 // Size modifiers — rolled as a third independent dimension
@@ -1092,6 +1095,26 @@ function runCutscene(shape, effect, size, onDone){
       const rc=['#ffffff','#d0e8ff','#c0d8ff','#a0c0ff','#e8f0ff','#8090d0','#f0f8ff'];
       for(let i=0;i<170;i++){const a=Math.random()*Math.PI*2,sp=5+Math.random()*18;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:1.5+Math.random()*6,color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.005+Math.random()*.005,delay:Math.floor(Math.random()*30)});}
       for(let i=0;i<14;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:17+i,lw:2.8,color:rc[i%rc.length],alpha:1,decay:.008,delay:i*5});
+    } else if(effect.id==='Gravity'){
+      // Particles start scattered and spiral inward — black hole singularity
+      const rc=['#9060e0','#4020a0','#d0a0ff','#c090ff','#6040b0','#ffffff'];
+      for(let i=0;i<140;i++){
+        const a=Math.random()*Math.PI*2, dist=60+Math.random()*320;
+        const sx=cxcs+Math.cos(a)*dist, sy=cycs+Math.sin(a)*dist;
+        const toC=Math.atan2(cycs-sy,cxcs-sx), spd=4+Math.random()*14;
+        csParticles.push({x:sx,y:sy,vx:Math.cos(toC)*spd,vy:Math.sin(toC)*spd,r:1.5+Math.random()*4,color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.006+Math.random()*.005,delay:Math.floor(Math.random()*35)});
+      }
+      for(let i=0;i<10;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:60+i*28,dr:-(4+i*0.5),lw:2,color:rc[i%rc.length],alpha:0.8,decay:.009,delay:i*8});
+    } else if(effect.id==='Magnet'){
+      // Electric arc lines — field lines radiating then snapping back
+      const rc=['#40a0e0','#1060a0','#80d0ff','#ffffff','#60c0ff'];
+      for(let i=0;i<120;i++){const a=Math.random()*Math.PI*2,sp=5+Math.random()*16;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:1.5+Math.random()*3.5,color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.009+Math.random()*.007,delay:Math.floor(Math.random()*20)});}
+      for(let i=0;i<10;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:13+i*1.5,lw:2.5,color:rc[i%rc.length],alpha:1,decay:.011,delay:i*5});
+    } else if(effect.id==='Tide'){
+      // Concentric wave rings expanding outward, ocean blue particles
+      const rc=['#20a0d0','#40d0f0','#0060a0','#80e0ff','#ffffff'];
+      for(let i=0;i<110;i++){const a=Math.random()*Math.PI*2,sp=3+Math.random()*12;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*4,color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.007+Math.random()*.006,delay:Math.floor(Math.random()*25)});}
+      for(let i=0;i<16;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:10+i*0.8,lw:i%2===0?3:1.5,color:rc[i%rc.length],alpha:1,decay:.007,delay:i*9});
     } else {
       // Generic big burst
       for(let i=0;i<100;i++){const a=Math.random()*Math.PI*2,sp=3+Math.random()*14;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*5,color:effect.color,alpha:1,decay:.009,delay:Math.floor(Math.random()*15)});}
@@ -1101,7 +1124,8 @@ function runCutscene(shape, effect, size, onDone){
 
   // bg color for cutscene
   const bgColors={Inferno:'#1a0800',Gilded:'#1a1400',Spectral:'#0a0014',Cosmic:'#02040e',Void:'#080010',Eclipse:'#0e0800',
-    Phoenix:'#1a0400',Abyssal:'#010108',Divine:'#1a1800',Arcane:'#0a0018',Celestial:'#020614'};
+    Phoenix:'#1a0400',Abyssal:'#010108',Divine:'#1a1800',Arcane:'#0a0018',Celestial:'#020614',
+    Gravity:'#020008',Magnet:'#000810',Tide:'#000818'};
   const bg=bgColors[effect.id]||'#08080e';
 
   function drawCS(){
@@ -1295,7 +1319,8 @@ function getRarestShape() {
   const fillMap={ Void:'#2a1040',Radiant:'#e0b840',Inferno:'#c03010',Spectral:'#c060f0',Prism:'#b8ccec',Glow:'#80c8a8',Frozen:'#90d0f0',Toxic:'#80d030',Eclipse:'#201830',Gilded:'#d4b030',Cosmic:'#2030a0',
     Rust:'#b06040',Stone:'#a09880',Crystal:'#90e0f8',Storm:'#6070a0',Ember:'#e08840',Aurora:'#40e890',
     Plague:'#507030',Rune:'#4020a0',Mirage:'#d4b870',Aqua:'#1898c0',
-    Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0'};
+    Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0',
+    Gravity:'#100818',Magnet:'#102840',Tide:'#082838'};
   const fill = top.effect.id && fillMap[top.effect.id] ? fillMap[top.effect.id] : top.effect.fill;
   const sc = top.size ? top.size.scale : 1.0;
   const geo = shapeGeometry(top.shape.id, fill, '');
@@ -1625,7 +1650,8 @@ function buildCatCard(entry) {
     Eclipse:'#201830',Gilded:'#d4b030',Cosmic:'#2030a0',
     Rust:'#b06040',Stone:'#a09880',Crystal:'#90e0f8',Storm:'#6070a0',Ember:'#e08840',Aurora:'#40e890',
     Plague:'#507030',Rune:'#4020a0',Mirage:'#d4b870',Aqua:'#1898c0',
-    Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0' };
+    Phoenix:'#ff8020',Abyssal:'#0c0c20',Divine:'#fff8c0',Arcane:'#6010c0',Celestial:'#c0d0f0',
+    Gravity:'#100818',Magnet:'#102840',Tide:'#082838' };
   const fill = effect.id && fillMap[effect.id] ? fillMap[effect.id] : effect.fill;
   const sc = size ? size.scale : 1.0;
   const geo = shapeGeometry(shape.id, fill, '');
@@ -1821,6 +1847,9 @@ const _SC_PAL = {
   Eclipse:['#504068','#181030','#302848'],
   Aqua:['#30b0d0','#60d0f0','#1090b0'],
   Mirage:['#d4b870','#f0d890','#c0a050'],
+  Gravity:['#9060e0','#4020a0','#d0a0ff','#180830'],
+  Magnet:['#40a0e0','#1060a0','#80d0ff','#ffffff'],
+  Tide:['#20a0d0','#40d0f0','#0060a0','#80e0ff'],
 };
 
 function _scInitCanvas() {
@@ -1874,6 +1903,9 @@ function _scPlayImpact(effectId, soft) {
     else if (effectId==='Void')                                 { playTone(42,'sine',0.38,v*2); }
     else if (effectId==='Spectral'||effectId==='Divine'||effectId==='Arcane') { playTone(880,'sine',0.35,v*0.8); playTone(1320,'sine',0.28,v*0.55,0.06); }
     else if (effectId==='Cosmic')                               { playTone(660,'sine',0.3,v); playTone(990,'sine',0.25,v*0.7,0.04); }
+    else if (effectId==='Gravity')                              { playTone(38,'sine',0.45,v*2.5); playNoise(0.12,v*1.8,40); }
+    else if (effectId==='Magnet')                               { playNoise(0.06,v*4,2400); playTone(320,'square',0.10,v*0.8); }
+    else if (effectId==='Tide')                                 { playTone(180,'sine',0.18,v*1.4); playTone(240,'sine',0.12,v,0.08); }
     else                                                        { playTone(190,'sine',0.12,v); playNoise(0.07,v*0.5,700); }
   } catch(e) {}
 }
@@ -1985,7 +2017,8 @@ function _scLaunch(entries, title, hint) {
       const isEcl=eid==='Eclipse', isPlag=eid==='Plague'||eid==='Toxic';
       const isDiv=eid==='Divine', isGlow=eid==='Glow'||eid==='Aurora';
       const isArc=eid==='Arcane';
-      if (!isCel&&!isVoid&&!isRad&&!isEcl&&!isPlag&&!isDiv&&!isGlow&&!isArc) continue;
+      const isGrav=eid==='Gravity', isMag=eid==='Magnet', isTide=eid==='Tide';
+      if (!isCel&&!isVoid&&!isRad&&!isEcl&&!isPlag&&!isDiv&&!isGlow&&!isArc&&!isGrav&&!isMag&&!isTide) continue;
       const cx=src.x+src.w/2, cy=src.y+src.h/2;
       for (let j=0;j<N;j++) {
         if (i===j) continue;
@@ -2001,6 +2034,15 @@ function _scLaunch(entries, title, hint) {
         if (isDiv &&dist<200){const spd=Math.hypot(b.vx,b.vy);if(spd<1.5){b.vx+=(Math.random()-.5)*.07;b.vy+=(Math.random()-.5)*.07;}}
         if (isGlow&&dist<130&&dist>R*2){const f=-0.042*(1-dist/130);b.vx+=ux*f;b.vy+=uy*f;}
         if (isArc &&dist<260&&dist>R*2){const a2=Math.random()*Math.PI*2;b.vx+=Math.cos(a2)*.014;b.vy+=Math.sin(a2)*.014;}
+        // Gravity: strong singularity pull + spaghettify toward source
+        if (isGrav&&dist<480&&dist>R*2){const f=0.22*(1-dist/480);b.vx+=ux*f;b.vy+=uy*f;b.sqVX+=ux*0.012;b.sqVY+=uy*0.012;}
+        // Magnet: attract at mid-range, repel at close range (dipole)
+        if (isMag&&dist>R*2){
+          if(dist>90&&dist<320){const f=0.10*(1-dist/320);b.vx+=ux*f;b.vy+=uy*f;}
+          else if(dist<=90){const f=0.18*(1-dist/90);b.vx-=ux*f;b.vy-=uy*f;}
+        }
+        // Tide: sinusoidal push-pull creating rhythmic wave flow
+        if (isTide&&dist<300&&dist>R*2){const wave=Math.sin(Date.now()/900+i*1.1);const f=wave*0.058*(1-dist/300);b.vx-=ux*f;b.vy-=uy*f;}
       }
     }
 
@@ -2056,6 +2098,26 @@ function _scLaunch(entries, title, hint) {
           continue;
         }
 
+        // ── Gravity: spaghettify on impact ──
+        if (ae==='Gravity'||be==='Gravity') {
+          const gs=ae==='Gravity'?a:b, go=ae==='Gravity'?b:a;
+          gs.sqVX+=0.45*(Math.abs(ny)-Math.abs(nx)); gs.sqVY+=0.45*(Math.abs(nx)-Math.abs(ny));
+          go.sqVX+=0.7*nx; go.sqVY+=0.7*ny;
+          const mvx=(a.vx+b.vx)*.5,mvy=(a.vy+b.vy)*.5;
+          a.vx=a.vx*.28+mvx*.72; a.vy=a.vy*.28+mvy*.72;
+          b.vx=b.vx*.28+mvx*.72; b.vy=b.vy*.28+mvy*.72;
+          if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Gravity');_scPlayImpact('Gravity',false);}
+          continue;
+        }
+
+        // ── Magnet: violent snap-away on contact ──
+        if (ae==='Magnet'||be==='Magnet') {
+          const f=2.8; a.vx-=nx*f; a.vy-=ny*f; b.vx+=nx*f; b.vy+=ny*f;
+          a.sqVX-=0.3; a.sqVY+=0.3; b.sqVX-=0.3; b.sqVY+=0.3;
+          if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Magnet');_scPlayImpact('Magnet',false);}
+          continue;
+        }
+
         // ── Gilded/Stone/Rust: variable mass ──
         const massA = ae==='Gilded'?4 : ae==='Stone'||ae==='Rust'?2 : 1;
         const massB = be==='Gilded'?4 : be==='Stone'||be==='Rust'?2 : 1;
@@ -2075,6 +2137,7 @@ function _scLaunch(entries, title, hint) {
         }
         else if (ae==='Ember'||be==='Ember') { rest=0.88; }
         else if (ae==='Mirage'||be==='Mirage') { rest=0.78; }
+        else if (ae==='Tide'||be==='Tide') { rest=1.18; }
 
         const invM = 1/massA+1/massB;
         const j2 = -(1+rest)*dot/invM;
