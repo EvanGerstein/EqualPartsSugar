@@ -2443,7 +2443,10 @@ async function submitAuth() {
 
 async function doSignOut() {
   await sbClient.auth.signOut();
+  currentUser = null;
+  localStorage.removeItem('sb-uxprqqwqeymsynkynxoi-auth-token');
   document.getElementById('authModal').classList.remove('active');
+  await updateAuthUI();
 }
 
 // ── init
