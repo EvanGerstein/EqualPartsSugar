@@ -1431,7 +1431,7 @@ async function renderGlobalTab() {
           <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
         <div class="lb-score">
-          ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}',${JSON.stringify(p.showcase_json)})">Showcase</button>`:'')}
+          ${isMe?`<button class="sc-player-btn" onclick="event.stopPropagation();openMyShowcase()">Showcase</button>`:(p.showcase_json&&p.showcase_json.length?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcase('${p.name.replace(/'/g,"\\'")}','${encodeURIComponent(typeof p.showcase_json==='string'?p.showcase_json:JSON.stringify(p.showcase_json))}')">Showcase</button>`:'')}
           <span>${p.coins.toLocaleString()}</span> coins
         </div>
       </div>`;
@@ -2352,6 +2352,11 @@ function openMyShowcase() {
 }
 
 function openPlayerShowcase(playerName, showcaseJson) {
+  if (!showcaseJson) return;
+  // showcase_json is stored as a text string in the DB; decode if needed
+  if (typeof showcaseJson === 'string') {
+    try { showcaseJson = JSON.parse(decodeURIComponent(showcaseJson)); } catch(e) { return; }
+  }
   if (!showcaseJson || !showcaseJson.length) return;
   const entries = showcaseJson.map(d => {
     const shape = SHAPES.find(s=>s.id===d.s);
@@ -2471,6 +2476,7 @@ async function loadUserData() {
 sbClient.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     currentUser = session.user;
+    _autoModerateSchools(); // silently clean inappropriate school names on login
     if (!playerName) {
       const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
       if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
