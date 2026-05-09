@@ -49,6 +49,43 @@ nav a:hover,nav a.on { color:var(--ink); }
 .flash { position:fixed;inset:0;z-index:200;background:transparent;opacity:0;pointer-events:none;transition:opacity .05s; }
 .sc-infected { filter: sepia(0.9) hue-rotate(60deg) saturate(3.5) brightness(0.85) !important; outline:2px solid #70c030; outline-offset:2px; border-radius:50%; }
 .sc-burning  { filter: sepia(1) saturate(5) hue-rotate(-40deg) brightness(1.3) !important; outline:2px solid #ff6010; outline-offset:2px; border-radius:50%; }
+
+/* ── SHOP ── */
+#shop { position:fixed;inset:0;z-index:15;background:var(--bg);display:none;flex-direction:column;opacity:0;transition:opacity .25s; }
+#shop.visible { display:flex; }
+#shop.active { opacity:1; }
+.shop-header { padding:28px 32px 0;display:flex;align-items:baseline;justify-content:space-between;flex-shrink:0; }
+.shop-title { font-family:'Instrument Serif',serif;font-size:1.1rem;color:var(--ink); }
+.shop-sub { font-size:.6rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);margin-top:4px; }
+.shop-section-label { font-size:.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--soft);padding:18px 0 8px;border-top:1px solid var(--line);margin-top:8px; }
+.shop-section-label:first-child { border-top:none;margin-top:0; }
+.shop-grid-wrap { flex:1;overflow-y:auto;padding:20px 32px 40px; }
+.shop-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px; }
+.rod-card { background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:16px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .12s; }
+.rod-card.active-rod { border-width:2px; }
+.rod-card.locked { opacity:.65; }
+.rod-card:hover:not(.locked) { border-color:#aaa;transform:translateY(-2px); }
+.rod-emoji { font-size:1.6rem;line-height:1.2; }
+.rod-name { font-family:'Instrument Serif',serif;font-size:.95rem; }
+.rod-desc { font-size:.6rem;color:var(--soft);line-height:1.55; }
+.rod-perks { display:flex;flex-wrap:wrap;gap:4px;margin-top:2px; }
+.rod-perk { font-size:.52rem;letter-spacing:.5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--soft); }
+.rod-price { font-size:.65rem;font-weight:500;color:var(--soft);margin-top:2px; }
+.rod-btn { margin-top:auto;padding:7px 10px;border-radius:7px;border:1px solid var(--line);background:none;font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap; }
+.rod-btn:hover:not(:disabled):not(.equipped) { background:var(--ink);color:#f5f4f0;border-color:var(--ink); }
+.rod-btn.equipped { background:var(--ink);color:#f5f4f0;border-color:var(--ink);cursor:default; }
+.rod-btn:disabled { opacity:.38;cursor:not-allowed; }
+.rod-unlock-hint { font-size:.55rem;color:var(--soft);font-style:italic;line-height:1.5; }
+.rod-prog-wrap { display:flex;align-items:center;gap:6px;margin-top:2px; }
+.rod-prog { flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden; }
+.rod-prog-fill { height:100%;background:#70a840;border-radius:2px;transition:width .4s; }
+.rod-prog-label { font-size:.52rem;color:var(--soft);white-space:nowrap; }
+.rod-equipped-tag { font-size:.48rem;letter-spacing:2px;text-transform:uppercase;color:#fff;background:var(--ink);border-radius:3px;padding:2px 5px;display:inline-block; }
+@keyframes rod-unlock { 0%{transform:scale(.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+.rod-card.just-unlocked { animation:rod-unlock .5s cubic-bezier(.17,.67,.3,1.35) both; }
+/* toast */
+#rodToast { position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#f5f4f0;font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.5px;padding:10px 20px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;z-index:600;white-space:nowrap; }
+#rodToast.show { opacity:1;transform:translateX(-50%) translateY(0); }
 .flash.on { opacity:1; }
 .flash.gold { background:linear-gradient(135deg,#fff8e0,#fff0a0); }
 .flash.spectral { background:linear-gradient(135deg,#f0e0ff,#e0f0ff); }
@@ -298,6 +335,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 <nav>
   <a class="on" onclick="showPage('collect')">Collect</a>
   <a onclick="showPage('catalogue')">Catalogue</a>
+  <a onclick="showPage('shop')">Shop</a>
   <a onclick="showPage('ranks')">Ranks</a>
   <a id="authNavBtn" onclick="openAuthModal()">Sign In</a>
 </nav>
@@ -305,6 +343,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 <div class="corner-coins"><div class="lbl">Coins</div><div class="val" id="coins">4,820</div></div>
 
 <div class="flash" id="flash"></div>
+<div id="rodToast"></div>
 <canvas id="vfx"></canvas>
 
 <!-- Cutscene overlay -->
@@ -326,6 +365,19 @@ nav a:hover,nav a.on { color:var(--ink); }
     </div>
   </div>
   <div class="ranks-body" id="ranksBody"></div>
+</div>
+
+<!-- Shop -->
+<div id="shop">
+  <div class="shop-header">
+    <div>
+      <div class="shop-title">Rod Shop</div>
+      <div class="shop-sub" id="shopCoinsDisplay"></div>
+    </div>
+  </div>
+  <div class="shop-grid-wrap">
+    <div id="shopGrid" class="shop-grid"></div>
+  </div>
 </div>
 
 <!-- Catalogue -->
@@ -487,6 +539,43 @@ const SIZE_MODS = [
   { id:'Big',   label:'Big',   scale:1.35, color:'#9090c0',    w:10  },
   { id:'Giant', label:'Giant', scale:1.65, color:'#a870d0',    w:5   },
   { id:'Huge',  label:'Huge',  scale:1.95, color:'#d040e0',    w:2   },
+];
+
+// ── Rods — affect the weighted roll odds ──
+// tiers: { vfxLevel: multiplier } — vfx levels: 1=common 2=uncommon 3=rare 4=epic 5=legendary 6=mythic
+// special: { effectId: multiplier } — boost a specific effect
+const RODS = [
+  { id:'twig',      label:'Twig',          emoji:'🪵', color:'#a07850',
+    desc:'A stick from the ground. Humble beginnings.',
+    price:0, tiers:{} },
+  { id:'iron',      label:'Iron Rod',      emoji:'⚙️',  color:'#909090',
+    desc:'Weighted metal tip. Rare effects surface more often.',
+    price:8000, tiers:{ 3:1.6 } },
+  { id:'mossy',     label:'Mossy Rod',     emoji:'🌿', color:'#70a840',
+    desc:'Ancient and overgrown. Uncommon & Rare effects awakened.',
+    price:32000, tiers:{ 2:1.4, 3:2.4, 4:2.5 } },
+  { id:'prism',     label:'Prism Rod',     emoji:'🔷', color:'#60c0e0',
+    desc:'Light refracts through it. Epic effects shine through.',
+    price:100000, tiers:{ 2:1.3, 3:2.8, 4:5, 5:3 } },
+  { id:'void',      label:'Void Rod',      emoji:'🌑', color:'#8040c0',
+    desc:'Forged in absence. Legendary effects stir in the dark.',
+    price:320000, tiers:{ 3:3, 4:7, 5:7, 6:4 } },
+  { id:'celestial', label:'Celestial Rod', emoji:'✨', color:'#90b8ff',
+    desc:'Star-forged. Mythic effects become reachable.',
+    price:950000, tiers:{ 3:3.5, 4:9, 5:12, 6:10 } },
+  // ── Secret rods: unlocked by showcase achievements ──
+  { id:'rot',       label:'Rot Rod',       emoji:'☣️', color:'#80a030',
+    desc:'Festers with plague. Plague effects 8× more likely.',
+    price:0, secret:true,
+    unlockHint:'Infect 25 shapes in the Showcase',
+    unlockKey:'sq_ach_plague', unlockGoal:25,
+    special:{ 'Plague':8 } },
+  { id:'ember',     label:'Ember Rod',     emoji:'🔥', color:'#d04818',
+    desc:'Still smouldering. Inferno & Phoenix 8× more likely.',
+    price:0, secret:true,
+    unlockHint:'Burn 25 shapes in the Showcase',
+    unlockKey:'sq_ach_burns', unlockGoal:25,
+    special:{ 'Inferno':8, 'Phoenix':8 } },
 ];
 
 // Combined score — factors shape × effect × size probability
@@ -952,7 +1041,19 @@ function playSound(vfx, effectId){
 // ROLL
 // ═══════════════════════════════════════════════
 function wPick(arr){const t=arr.reduce((s,x)=>s+x.w,0);let r=Math.random()*t;for(const x of arr){r-=x.w;if(r<=0)return x;}return arr[0];}
-function roll(){return{shape:wPick(SHAPES),effect:wPick(EFFECTS),size:wPick(SIZE_MODS)};}
+function roll(){
+  const rod=RODS.find(r=>r.id===playerRod)||RODS[0];
+  const hasTiers=rod.tiers&&Object.keys(rod.tiers).length>0;
+  const hasSpecial=rod.special&&Object.keys(rod.special).length>0;
+  if(!hasTiers&&!hasSpecial) return{shape:wPick(SHAPES),effect:wPick(EFFECTS),size:wPick(SIZE_MODS)};
+  const modEffects=EFFECTS.map(e=>{
+    let mult=1;
+    if(hasSpecial&&e.id&&rod.special[e.id]) mult=rod.special[e.id];
+    else if(hasTiers&&e.vfx>0&&rod.tiers[e.vfx]) mult=rod.tiers[e.vfx];
+    return mult===1?e:{...e,w:Math.max(1,Math.round(e.w*mult))};
+  });
+  return{shape:wPick(SHAPES),effect:wPick(modEffects),size:wPick(SIZE_MODS)};
+}
 
 // ═══════════════════════════════════════════════
 // VFX ENGINE
@@ -1276,6 +1377,8 @@ function docast(){
 // ═══════════════════════════════════════════════
 let playerName = localStorage.getItem('sq_name') || '';
 let playerSchool = localStorage.getItem('sq_school') || '';
+let playerRod = localStorage.getItem('sq_rod') || 'twig';
+let ownedRods = new Set(JSON.parse(localStorage.getItem('sq_owned_rods') || '["twig"]'));
 let currentRanksTab = 'global';
 
 function saveProfile(name) {
@@ -1602,6 +1705,140 @@ async function deleteSchool(name) {
 
 function _isAdmin() { return currentUser?.email==='evan.h.gerstein@gmail.com'||currentUser?.email==='egers002@mater.colegia.org'; }
 
+// ── ROD SHOP ──
+const ROD_TIER_NAMES = {1:'Common',2:'Uncommon',3:'Rare',4:'Epic',5:'Legendary',6:'Mythic'};
+
+function renderShopPage() {
+  document.getElementById('shopCoinsDisplay').textContent = coinCount.toLocaleString()+' coins available';
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+
+  // section headers
+  let inSecretSection = false;
+  RODS.forEach((rod,idx) => {
+    // section divider before secret rods
+    if(rod.secret && !inSecretSection) {
+      inSecretSection = true;
+      const sec = document.createElement('div');
+      sec.className = 'shop-section-label';
+      sec.style.gridColumn = '1/-1';
+      sec.textContent = 'Secret Rods — unlock through Showcase';
+      grid.appendChild(sec);
+    } else if(idx===0) {
+      const sec = document.createElement('div');
+      sec.className = 'shop-section-label';
+      sec.style.gridColumn = '1/-1';
+      sec.textContent = 'Rods';
+      grid.appendChild(sec);
+    }
+
+    const owned = ownedRods.has(rod.id);
+    const isActive = playerRod === rod.id;
+    const progress = rod.secret ? parseInt(localStorage.getItem(rod.unlockKey)||'0') : 0;
+    const secretUnlocked = rod.secret ? progress >= rod.unlockGoal : false;
+    const canSee = !rod.secret || secretUnlocked || progress > 0;
+
+    // Perk pills
+    let perksHtml = '';
+    if(rod.tiers && Object.keys(rod.tiers).length) {
+      perksHtml = Object.entries(rod.tiers).map(([t,m])=>
+        `<span class="rod-perk">${ROD_TIER_NAMES[t]||'T'+t} ×${m}</span>`
+      ).join('');
+    } else if(rod.special) {
+      perksHtml = Object.entries(rod.special).map(([e,m])=>
+        `<span class="rod-perk">${e} ×${m}</span>`
+      ).join('');
+    }
+
+    // Progress bar for secret rods
+    let secretHtml = '';
+    if(rod.secret && !secretUnlocked) {
+      const pct = Math.min(100, Math.round(progress / rod.unlockGoal * 100));
+      secretHtml = `
+        <div class="rod-unlock-hint">🔒 ${rod.unlockHint}</div>
+        <div class="rod-prog-wrap">
+          <div class="rod-prog"><div class="rod-prog-fill" style="width:${pct}%"></div></div>
+          <div class="rod-prog-label">${progress}/${rod.unlockGoal}</div>
+        </div>`;
+    }
+
+    // Button
+    let btnHtml = '';
+    if(rod.secret && !secretUnlocked) {
+      btnHtml = `<button class="rod-btn" disabled>Locked</button>`;
+    } else if(isActive) {
+      btnHtml = `<button class="rod-btn equipped">Equipped</button>`;
+    } else if(owned || secretUnlocked) {
+      btnHtml = `<button class="rod-btn" onclick="equipRod('${rod.id}')">Equip</button>`;
+    } else {
+      const can = coinCount >= rod.price;
+      btnHtml = `<button class="rod-btn${can?'':''}" ${can?'':'disabled '}onclick="buyRod('${rod.id}')">${can?'Buy':'Buy'} — ${rod.price.toLocaleString()} coins</button>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = `rod-card${isActive?' active-rod':''}${(rod.secret&&!secretUnlocked)?' locked':''}`;
+    if(isActive) card.style.borderColor = rod.color;
+    const desc = (rod.secret && !canSee) ? '???' : rod.secret && !secretUnlocked ? `${rod.desc} (locked)` : rod.desc;
+    const nameStr = (rod.secret && !canSee) ? '???' : rod.label;
+    card.innerHTML = `
+      ${isActive ? `<div class="rod-equipped-tag">Equipped</div>` : ''}
+      <div class="rod-emoji">${rod.secret && !canSee ? '🔒' : rod.emoji}</div>
+      <div class="rod-name" style="color:${rod.color}">${nameStr}</div>
+      <div class="rod-desc">${desc}</div>
+      ${perksHtml ? `<div class="rod-perks">${perksHtml}</div>` : ''}
+      ${secretHtml}
+      ${rod.price > 0 && !owned && !rod.secret ? `<div class="rod-price">${rod.price.toLocaleString()} coins</div>` : ''}
+      ${btnHtml}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function buyRod(id) {
+  const rod = RODS.find(r=>r.id===id);
+  if(!rod || ownedRods.has(id)) return;
+  if(coinCount < rod.price) { showRodToast('Not enough coins!'); return; }
+  coinCount -= rod.price;
+  localStorage.setItem('sq_coins', coinCount);
+  document.getElementById('coins').textContent = coinCount.toLocaleString();
+  ownedRods.add(id);
+  localStorage.setItem('sq_owned_rods', JSON.stringify([...ownedRods]));
+  equipRod(id);
+  showRodToast(`${rod.emoji} ${rod.label} purchased!`);
+}
+
+function equipRod(id) {
+  const rod = RODS.find(r=>r.id===id);
+  if(!rod) return;
+  const secretUnlocked = rod.secret ? parseInt(localStorage.getItem(rod.unlockKey)||'0') >= rod.unlockGoal : true;
+  if(!ownedRods.has(id) && !secretUnlocked) return;
+  if(rod.secret && secretUnlocked && !ownedRods.has(id)) { ownedRods.add(id); localStorage.setItem('sq_owned_rods',JSON.stringify([...ownedRods])); }
+  playerRod = id;
+  localStorage.setItem('sq_rod', id);
+  renderShopPage();
+}
+
+function checkRodUnlocks() {
+  RODS.forEach(rod => {
+    if(!rod.secret) return;
+    const progress = parseInt(localStorage.getItem(rod.unlockKey)||'0');
+    if(progress >= rod.unlockGoal && !ownedRods.has(rod.id)) {
+      ownedRods.add(rod.id);
+      localStorage.setItem('sq_owned_rods', JSON.stringify([...ownedRods]));
+      showRodToast(`🔓 Secret rod unlocked: ${rod.label}!`);
+    }
+  });
+}
+
+let _toastTimer = null;
+function showRodToast(msg) {
+  const t = document.getElementById('rodToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
 async function _autoModerateSchools() {
   try {
     const all = await sbGet('schools','limit=200');
@@ -1830,17 +2067,19 @@ function toggleShowcaseEntry() {
 let currentPage = 'collect';
 
 function showPage(page) {
+  currentPage = page;
   document.querySelectorAll('nav a').forEach((a,i)=>{
-    a.classList.toggle('on',(i===0&&page==='collect')||(i===1&&page==='catalogue')||(i===2&&page==='ranks'));
+    a.classList.toggle('on',(i===0&&page==='collect')||(i===1&&page==='catalogue')||(i===2&&page==='shop')||(i===3&&page==='ranks'));
   });
   const cat=document.getElementById('catalogue');
   const ranks=document.getElementById('ranks');
+  const shop=document.getElementById('shop');
   const stage=document.querySelector('.stage');
   const cstat=document.querySelector('.corner-stat');
   const ccoins=document.querySelector('.corner-coins');
 
   // hide all overlays first
-  [cat,ranks].forEach(el=>{
+  [cat,ranks,shop].forEach(el=>{
     el.classList.remove('active');
     el.style.pointerEvents='none';
     setTimeout(()=>{ if(!el.classList.contains('active')) el.style.display='none'; el.style.pointerEvents='all'; },260);
@@ -1853,6 +2092,12 @@ function showPage(page) {
     renderCatalogue();
     cat.style.display='flex'; cat.style.pointerEvents='all';
     requestAnimationFrame(()=>cat.classList.add('active'));
+    stage.style.opacity='0'; stage.style.pointerEvents='none';
+    cstat.style.opacity='0'; ccoins.style.opacity='0';
+  } else if(page==='shop'){
+    renderShopPage();
+    shop.style.display='flex'; shop.style.pointerEvents='all';
+    requestAnimationFrame(()=>shop.classList.add('active'));
     stage.style.opacity='0'; stage.style.pointerEvents='none';
     cstat.style.opacity='0'; ccoins.style.opacity='0';
   } else if(page==='ranks'){
@@ -2178,6 +2423,10 @@ function _scLaunch(entries, title, hint) {
           const victim=ae==='Plague'?b:a;
           if(!victim._infectedTimer) {
             victim._infectedTimer=480;
+            // Track achievement for Rot Rod
+            const pc=parseInt(localStorage.getItem('sq_ach_plague')||'0')+1;
+            localStorage.setItem('sq_ach_plague',pc);
+            checkRodUnlocks();
             if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Plague');_scPlayImpact('Plague',false);}
           }
           // Sluggish gooey bounce
@@ -2190,6 +2439,9 @@ function _scLaunch(entries, title, hint) {
           const infected=a._infectedTimer>0?a:b, healthy=a._infectedTimer>0?b:a;
           if(!healthy._infectedTimer&&Math.random()<0.40) {
             healthy._infectedTimer=320;
+            const pc=parseInt(localStorage.getItem('sq_ach_plague')||'0')+1;
+            localStorage.setItem('sq_ach_plague',pc);
+            checkRodUnlocks();
             if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Plague');}
           }
         }
@@ -2199,6 +2451,10 @@ function _scLaunch(entries, title, hint) {
           const victim=ae==='Inferno'?b:a;
           if(!victim._burningTimer) {
             victim._burningTimer=380;
+            // Track achievement for Ember Rod
+            const bc=parseInt(localStorage.getItem('sq_ach_burns')||'0')+1;
+            localStorage.setItem('sq_ach_burns',bc);
+            checkRodUnlocks();
             if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Inferno');_scPlayImpact('Inferno',false);}
           }
           // Super bouncy — fire launches shapes away
@@ -2211,6 +2467,9 @@ function _scLaunch(entries, title, hint) {
           const burner=a._burningTimer>0?a:b, cold=a._burningTimer>0?b:a;
           if(!cold._burningTimer&&Math.random()<0.50) {
             cold._burningTimer=260;
+            const bc=parseInt(localStorage.getItem('sq_ach_burns')||'0')+1;
+            localStorage.setItem('sq_ach_burns',bc);
+            checkRodUnlocks();
             if(isNew){_scSpawnVFX(spx*sc,spy*sc,'Inferno');}
           }
         }
