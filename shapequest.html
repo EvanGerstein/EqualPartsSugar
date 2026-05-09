@@ -2814,18 +2814,18 @@ async function saveUserData() {
     for (const [k, v] of Object.entries(collection)) {
       colData[k] = { shapeId:v.shape.id, effectId:v.effect.id, sizeId:v.size?v.size.id:null, count:v.count, bestPts:v.bestPts, score:v.score };
     }
-    await sbClient.from('user_data').upsert({
+    const { error } = await sbClient.from('user_data').upsert({
       user_id: currentUser.id,
       player_name: playerName||'',
       school: playerSchool||'',
       coins: coinCount,
       level: playerLevel,
       xp: playerXP,
-      rod: playerRod||'twig',
       collection: colData,
       ts: Date.now()
     });
-  } catch(e) {}
+    if (error) console.error('[ShapeQuest] saveUserData failed:', error);
+  } catch(e) { console.error('[ShapeQuest] saveUserData exception:', e); }
 }
 
 async function loadUserData() {
@@ -2871,14 +2871,6 @@ async function loadUserData() {
       playerSchool = data.school;
       localStorage.setItem('sq_school', playerSchool);
     }
-    // Rod choice — restore from cloud if none set locally
-    if (data.rod && !playerRod) {
-      playerRod = data.rod;
-      localStorage.setItem('sq_rod', playerRod);
-    } else if (playerRod && playerRod !== data.rod) {
-      localAhead = true;
-    }
-
     // ── Always merge collections — keep the best count/pts for every entry ──
     let collectionChanged = false;
     if (data.collection && typeof data.collection === 'object') {
