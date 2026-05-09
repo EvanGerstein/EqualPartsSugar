@@ -128,7 +128,8 @@ nav a:hover,nav a.on { color:var(--ink); }
 .showcase-close { background:none;border:none;cursor:pointer;font-size:1rem;color:var(--soft);padding:4px; }
 .showcase-shape-el { position:absolute;cursor:grab;user-select:none;text-align:center; }
 .showcase-shape-el:active { cursor:grabbing; }
-.showcase-shape-lbl { font-size:.52rem;letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;color:var(--soft); }
+.showcase-shape-lbl { font-size:.52rem;letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;color:var(--soft);opacity:0;transition:opacity .18s; }
+.showcase-shape-el:hover .showcase-shape-lbl { opacity:1; }
 .showcase-empty { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:1.1rem;color:var(--soft); }
 .showcase-open-btn { font-size:.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);text-decoration:none;cursor:pointer;transition:color .15s; }
 .showcase-open-btn:hover { color:var(--ink); }
@@ -1742,6 +1743,89 @@ function showPage(page) {
 // SHOWCASE
 // ═══════════════════════════════════════════════
 let _scShapes=[], _scRaf=null, _scDrag=null, _scMoveH=null, _scUpH=null;
+let _scCanvas=null, _scCtx=null, _scParticles=[], _scSndCool={};
+
+const _SC_PAL = {
+  Abyssal:['#5820b0','#3a1080','#160830'],
+  Celestial:['#ffe880','#ffffff','#b8e8ff','#ffd040'],
+  Inferno:['#ff6010','#ff3000','#ffb020'],
+  Phoenix:['#ff7020','#ffcc30','#ff5000'],
+  Frozen:['#90d8ff','#ffffff','#c0f0ff'],
+  Crystal:['#a8e8ff','#e0f8ff','#70c0e8'],
+  Storm:['#ffee40','#ffffff','#a0c8ff'],
+  Void:['#2810b0','#180848','#5028c0'],
+  Spectral:['#d070f8','#ff90ff','#9050f0'],
+  Arcane:['#9030e0','#c040ff','#6020b0'],
+  Divine:['#ffffff','#ffffa0','#ffefc0'],
+  Cosmic:['#4060c8','#8090e8','#2040a8'],
+  Glow:['#50e090','#90ffc0','#20c068'],
+  Aurora:['#40e898','#80ffb8','#20d068'],
+  Radiant:['#ffc820','#ffe060','#ff9010'],
+  Gilded:['#d4b030','#ffe060','#b08020'],
+  Ember:['#e09040','#ff6020','#c07010'],
+  Toxic:['#90e040','#50b010','#c8ff40'],
+  Plague:['#709040','#405020','#a0c050'],
+  Prism:['#a0b8e8','#ddeeff','#8090c8'],
+  Rune:['#7040c0','#4020a0','#9060d0'],
+  Eclipse:['#504068','#181030','#302848'],
+  Aqua:['#30b0d0','#60d0f0','#1090b0'],
+  Mirage:['#d4b870','#f0d890','#c0a050'],
+};
+
+function _scInitCanvas() {
+  if (!_scCanvas) {
+    _scCanvas = document.createElement('canvas');
+    _scCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:22;';
+    document.body.appendChild(_scCanvas);
+    _scCtx = _scCanvas.getContext('2d');
+  }
+  _scCanvas.width = innerWidth; _scCanvas.height = innerHeight;
+  _scCanvas.style.display = '';
+  _scParticles = [];
+  _scSndCool = {};
+}
+
+function _scSpawnVFX(x, y, effectId) {
+  if (_scParticles.length > 90) return;
+  const colors = _SC_PAL[effectId] || ['#ffffff','#dddddd','#aaaaaa'];
+  const isAbyss = effectId==='Abyssal';
+  const isCelest = effectId==='Celestial';
+  const count = isAbyss ? 5 : isCelest ? 9 : 6;
+  for (let i=0; i<count; i++) {
+    const ang = (i/count)*Math.PI*2 + Math.random()*0.7;
+    const sp = isAbyss ? 1.0+Math.random()*2.0 : isCelest ? 1.5+Math.random()*3.0 : 2.5+Math.random()*3.5;
+    _scParticles.push({
+      x, y,
+      vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp,
+      r: isAbyss ? 5+Math.random()*6 : 2+Math.random()*3.5,
+      color: colors[i % colors.length],
+      life: 1,
+      decay: isAbyss ? 0.020+Math.random()*0.018 : isCelest ? 0.025+Math.random()*0.02 : 0.038+Math.random()*0.034,
+      grav: isAbyss ? 0.08 : 0.05,
+    });
+  }
+  // expanding ring
+  _scParticles.push({ x, y, ringR:5, maxRingR:isAbyss?38:52, color:colors[0], life:1, decay:isAbyss?0.045:0.055, isRing:true });
+}
+
+function _scPlayImpact(effectId, soft) {
+  const key = (soft?'w':'')+( effectId||'x');
+  const now = Date.now();
+  if (_scSndCool[key] && now-_scSndCool[key] < (soft?110:65)) return;
+  _scSndCool[key] = now;
+  const v = soft ? 0.045 : 0.085;
+  try {
+    if      (effectId==='Abyssal')                              { playTone(52,'sine',0.22,v*2.2); playNoise(0.16,v*1.3,60); }
+    else if (effectId==='Celestial')                            { playTone(1100,'sine',0.5,v*0.9); playTone(1650,'sine',0.4,v*0.6,0.05); }
+    else if (effectId==='Inferno'||effectId==='Phoenix')        { playNoise(0.08,v*3,120); playTone(100,'sawtooth',0.12,v*1.2); }
+    else if (effectId==='Frozen'||effectId==='Crystal')        { playTone(2000,'sine',0.28,v*0.7); playTone(2700,'sine',0.2,v*0.5,0.03); }
+    else if (effectId==='Storm')                                { playNoise(0.07,v*3.5,1000); playTone(160,'square',0.08,v); }
+    else if (effectId==='Void')                                 { playTone(42,'sine',0.38,v*2); }
+    else if (effectId==='Spectral'||effectId==='Divine'||effectId==='Arcane') { playTone(880,'sine',0.35,v*0.8); playTone(1320,'sine',0.28,v*0.55,0.06); }
+    else if (effectId==='Cosmic')                               { playTone(660,'sine',0.3,v); playTone(990,'sine',0.25,v*0.7,0.04); }
+    else                                                        { playTone(190,'sine',0.12,v); playNoise(0.07,v*0.5,700); }
+  } catch(e) {}
+}
 
 function _scBuildEl(shapeObj, effectObj, sizeObj, label, rarityLbl, clr) {
   const el = document.createElement('div');
@@ -1783,8 +1867,7 @@ function _scLaunch(entries, title, hint) {
       el, effectId: eid,
       x: 40 + Math.random()*(W-w-80), y: 80 + Math.random()*(H-h-120),
       vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp,
-      w, h,
-      sqX: 1, sqY: 1,
+      w, h, sqX:1, sqY:1,
       dragging:false, dragOX:0, dragOY:0, pvx:0, pvy:0, lx:0, ly:0
     };
     el.style.width = w+'px';
@@ -1813,120 +1896,120 @@ function _scLaunch(entries, title, hint) {
 
   const sc = document.getElementById('showcase');
   sc.classList.add('visible'); requestAnimationFrame(() => sc.classList.add('active'));
+  _scInitCanvas();
 
   if (_scRaf) cancelAnimationFrame(_scRaf);
   function loop() {
     const W2=innerWidth, H2=innerHeight;
     const N=_scShapes.length;
 
-    // ── Celestial & Void gravity fields ──
-    for (let i=0; i<N; i++) {
+    // ── Gravity fields (Celestial + Void) ──
+    for (let i=0;i<N;i++) {
       const cel=_scShapes[i];
-      const isCel = cel.effectId==='Celestial';
-      const isVoid = cel.effectId==='Void';
-      if (!isCel && !isVoid) continue;
+      const isCel=cel.effectId==='Celestial', isVoid=cel.effectId==='Void';
+      if (!isCel&&!isVoid) continue;
       const cx=cel.x+cel.w/2, cy=cel.y+cel.h/2;
-      const radius  = isCel ? 380 : 220;
-      const strength= isCel ? 0.11 : 0.035;
-      for (let j=0; j<N; j++) {
+      const radius=isCel?380:220, strength=isCel?0.11:0.035;
+      for (let j=0;j<N;j++) {
         if (i===j) continue;
-        const b=_scShapes[j];
-        if (b.dragging) continue;
-        const bx=b.x+b.w/2, by=b.y+b.h/2;
-        const dx=cx-bx, dy=cy-by;
+        const b=_scShapes[j]; if (b.dragging) continue;
+        const dx=cx-(b.x+b.w/2), dy=cy-(b.y+b.h/2);
         const dist=Math.sqrt(dx*dx+dy*dy);
-        if (dist<radius && dist>65) {
-          const f=strength*(1-(dist/radius));
-          b.vx += (dx/dist)*f;
-          b.vy += (dy/dist)*f;
-        }
+        if (dist<radius&&dist>65) { const f=strength*(1-(dist/radius)); b.vx+=(dx/dist)*f; b.vy+=(dy/dist)*f; }
       }
     }
 
     // ── Shape–shape collisions ──
     const R=66;
-    for (let i=0; i<N; i++) {
-      for (let j=i+1; j<N; j++) {
+    for (let i=0;i<N;i++) {
+      for (let j=i+1;j<N;j++) {
         const a=_scShapes[i], b=_scShapes[j];
         if (a.dragging||b.dragging) continue;
-        const ax=a.x+a.w/2, ay=a.y+a.h/2;
-        const bx=b.x+b.w/2, by=b.y+b.h/2;
-        const dx=bx-ax, dy=by-ay;
-        const distSq=dx*dx+dy*dy;
+        const ax=a.x+a.w/2, ay=a.y+a.h/2, bx=b.x+b.w/2, by=b.y+b.h/2;
+        const dx=bx-ax, dy=by-ay, distSq=dx*dx+dy*dy;
         if (distSq>R*R*4||distSq<1) continue;
         const dist=Math.sqrt(distSq);
         if (dist>=R*2) continue;
         const nx=dx/dist, ny=dy/dist;
-
-        // push apart
         const overlap=(R*2-dist)*0.5;
         a.x-=nx*overlap; a.y-=ny*overlap;
         b.x+=nx*overlap; b.y+=ny*overlap;
-
         const dvx=b.vx-a.vx, dvy=b.vy-a.vy;
         const dot=dvx*nx+dvy*ny;
         if (dot>0) continue;
-
         const ae=a.effectId, be=b.effectId;
+        const spx=(ax+bx)/2, spy=(ay+by)/2;
 
-        // effect-specific collisions
-        let rest=0.82;
         if (ae==='Abyssal'||be==='Abyssal') {
-          rest=0.1;
-          // squish the abyssal shape along impact axis
-          if (ae==='Abyssal') { a.sqX=1+Math.abs(ny)*0.45; a.sqY=1-Math.abs(nx)*0.4; }
-          if (be==='Abyssal') { b.sqX=1+Math.abs(ny)*0.45; b.sqY=1-Math.abs(nx)*0.4; }
-          // blend velocities (gooey partial merge)
-          const mx=(a.vx+b.vx)*0.5, my=(a.vy+b.vy)*0.5;
-          a.vx=a.vx*0.4+mx*0.6; a.vy=a.vy*0.4+my*0.6;
-          b.vx=b.vx*0.4+mx*0.6; b.vy=b.vy*0.4+my*0.6;
+          if (ae==='Abyssal') { a.sqX=1+Math.abs(ny)*.42-Math.abs(nx)*.32; a.sqY=1+Math.abs(nx)*.42-Math.abs(ny)*.32; }
+          if (be==='Abyssal') { b.sqX=1+Math.abs(ny)*.42-Math.abs(nx)*.32; b.sqY=1+Math.abs(nx)*.42-Math.abs(ny)*.32; }
+          const mvx=(a.vx+b.vx)*.5, mvy=(a.vy+b.vy)*.5;
+          a.vx=a.vx*.35+mvx*.65; a.vy=a.vy*.35+mvy*.65;
+          b.vx=b.vx*.35+mvx*.65; b.vy=b.vy*.35+mvy*.65;
+          _scSpawnVFX(spx, spy, 'Abyssal'); _scPlayImpact('Abyssal', false);
           continue;
-        } else if (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix') {
-          rest=1.35; // explosive
-        } else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal') {
-          a.vx*=0.65; a.vy*=0.65; b.vx*=0.65; b.vy*=0.65;
-          rest=0.6;
-        } else if (ae==='Storm'||be==='Storm') {
-          a.vx+=(Math.random()-.5)*2.5; a.vy+=(Math.random()-.5)*2.5;
-          b.vx+=(Math.random()-.5)*2.5; b.vy+=(Math.random()-.5)*2.5;
-          rest=1.05;
-        } else if (ae==='Celestial'||be==='Celestial') {
-          rest=0.55;
         }
 
-        const j2=-(1+rest)*dot*0.5;
+        let rest=0.82;
+        if      (ae==='Inferno'||be==='Inferno'||ae==='Phoenix'||be==='Phoenix') { rest=1.35; }
+        else if (ae==='Frozen'||be==='Frozen'||ae==='Crystal'||be==='Crystal')   { a.vx*=.65;a.vy*=.65;b.vx*=.65;b.vy*=.65; rest=0.6; }
+        else if (ae==='Storm'||be==='Storm')                                       { a.vx+=(Math.random()-.5)*2.5;a.vy+=(Math.random()-.5)*2.5;b.vx+=(Math.random()-.5)*2.5;b.vy+=(Math.random()-.5)*2.5; rest=1.05; }
+        else if (ae==='Celestial'||be==='Celestial')                              { rest=0.55; }
+
+        const j2=-(1+rest)*dot*.5;
         a.vx-=j2*nx; a.vy-=j2*ny;
         b.vx+=j2*nx; b.vy+=j2*ny;
 
-        // speed cap
+        // mild squish on both
+        a.sqX=1+Math.abs(ny)*.22-Math.abs(nx)*.18; a.sqY=1+Math.abs(nx)*.22-Math.abs(ny)*.18;
+        b.sqX=1+Math.abs(ny)*.22-Math.abs(nx)*.18; b.sqY=1+Math.abs(nx)*.22-Math.abs(ny)*.18;
+
         const maxSpd=9;
         const asp=Math.hypot(a.vx,a.vy); if(asp>maxSpd){a.vx=a.vx/asp*maxSpd;a.vy=a.vy/asp*maxSpd;}
         const bsp=Math.hypot(b.vx,b.vy); if(bsp>maxSpd){b.vx=b.vx/bsp*maxSpd;b.vy=b.vy/bsp*maxSpd;}
+
+        _scSpawnVFX(spx, spy, ae||be); _scPlayImpact(ae||be, false);
       }
     }
 
-    // ── Integrate & render ──
+    // ── Integrate, wall bounce, squish spring ──
     for (const s of _scShapes) {
-      if (s.dragging) {
-        s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
-        s.el.style.transform='';
-        continue;
-      }
+      if (s.dragging) { s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px'; s.el.style.transform=''; continue; }
       s.x+=s.vx; s.y+=s.vy;
-      if (s.x<0){s.x=0;s.vx=Math.abs(s.vx)*0.88;}
-      if (s.x+s.w>W2){s.x=W2-s.w;s.vx=-Math.abs(s.vx)*0.88;}
-      if (s.y<70){s.y=70;s.vy=Math.abs(s.vy)*0.88;}
-      if (s.y+s.h>H2){s.y=H2-s.h;s.vy=-Math.abs(s.vy)*0.88;}
-      s.vx*=0.9995; s.vy*=0.9995;
-
-      // squish spring
-      s.sqX+=(1-s.sqX)*0.14;
-      s.sqY+=(1-s.sqY)*0.14;
-
+      const cx=s.x+s.w/2, cy=s.y+s.h/2;
+      if (s.x<0)       { const spd=Math.abs(s.vx); s.x=0;       s.vx=spd*.88; if(spd>1.2){s.sqX=.80;s.sqY=1.22;_scSpawnVFX(14,cy,s.effectId);_scPlayImpact(s.effectId,true);} }
+      if (s.x+s.w>W2)  { const spd=Math.abs(s.vx); s.x=W2-s.w; s.vx=-spd*.88; if(spd>1.2){s.sqX=.80;s.sqY=1.22;_scSpawnVFX(W2-14,cy,s.effectId);_scPlayImpact(s.effectId,true);} }
+      if (s.y<70)      { const spd=Math.abs(s.vy); s.y=70;      s.vy=spd*.88; if(spd>1.2){s.sqX=1.22;s.sqY=.80;_scSpawnVFX(cx,82,s.effectId);_scPlayImpact(s.effectId,true);} }
+      if (s.y+s.h>H2)  { const spd=Math.abs(s.vy); s.y=H2-s.h; s.vy=-spd*.88; if(spd>1.2){s.sqX=1.22;s.sqY=.80;_scSpawnVFX(cx,H2-14,s.effectId);_scPlayImpact(s.effectId,true);} }
+      s.vx*=.9995; s.vy*=.9995;
+      s.sqX+=(1-s.sqX)*.14; s.sqY+=(1-s.sqY)*.14;
       s.el.style.left=s.x+'px'; s.el.style.top=s.y+'px';
-      const needsq=Math.abs(s.sqX-1)>0.005||Math.abs(s.sqY-1)>0.005;
+      const needsq=Math.abs(s.sqX-1)>.005||Math.abs(s.sqY-1)>.005;
       s.el.style.transform=needsq?`scale(${s.sqX.toFixed(3)},${s.sqY.toFixed(3)})`:'';
     }
+
+    // ── Draw particles ──
+    if (_scCtx) {
+      _scCtx.clearRect(0,0,_scCanvas.width,_scCanvas.height);
+      _scParticles = _scParticles.filter(p => {
+        p.life -= p.decay;
+        if (p.life<=0) return false;
+        _scCtx.globalAlpha = Math.min(1, p.life*1.4);
+        if (p.isRing) {
+          p.ringR += (p.maxRingR-p.ringR)*.18;
+          _scCtx.beginPath(); _scCtx.arc(p.x,p.y,p.ringR,0,Math.PI*2);
+          _scCtx.strokeStyle=p.color; _scCtx.lineWidth=1.5; _scCtx.stroke();
+        } else {
+          p.x+=p.vx; p.y+=p.vy;
+          p.vx*=.91; p.vy*=.91; p.vy+=p.grav||.05;
+          _scCtx.beginPath(); _scCtx.arc(p.x,p.y,Math.max(.5,p.r*p.life),0,Math.PI*2);
+          _scCtx.fillStyle=p.color; _scCtx.fill();
+        }
+        return true;
+      });
+      _scCtx.globalAlpha=1;
+    }
+
     _scRaf = requestAnimationFrame(loop);
   }
   loop();
@@ -1942,6 +2025,8 @@ function closeShowcase() {
   setTimeout(() => sc.classList.remove('visible'), 270);
   if (_scRaf) { cancelAnimationFrame(_scRaf); _scRaf=null; }
   if (_scMoveH) { window.removeEventListener('mousemove',_scMoveH); window.removeEventListener('mouseup',_scUpH); window.removeEventListener('touchmove',_scMoveH); window.removeEventListener('touchend',_scUpH); _scMoveH=null; _scUpH=null; }
+  _scParticles=[];
+  if (_scCtx) { _scCtx.clearRect(0,0,_scCanvas.width,_scCanvas.height); _scCanvas.style.display='none'; }
 }
 
 function openMyShowcase() {
