@@ -118,7 +118,7 @@ nav a:hover,nav a.on { color:var(--ink); }
 .auth-signout-btn:hover { border-color:#aaa;color:var(--ink); }
 .auth-sync-note { font-size:.58rem;color:var(--soft);text-align:center;margin-top:10px;letter-spacing:.3px; }
 #authNavBtn { cursor:pointer; }
-#authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.58rem;letter-spacing:0; }
+#authNavBtn.signed-in { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#2d9e4f;color:#fff;font-size:.58rem;letter-spacing:0; }
 #authNavBtn.signed-in.has-shape { width:28px;height:28px;background:transparent;overflow:visible; }
 
 /* ── SHOWCASE ── */
@@ -2320,27 +2320,35 @@ sbClient.auth.onAuthStateChange(async (event, session) => {
 
 async function updateAuthUI() {
   if (!currentUser) {
-    const { data: { session } } = await sbClient.auth.getSession();
-    if (session?.user) {
-      currentUser = session.user;
-      if (!playerName) {
-        const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
-        if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+    try {
+      const { data: { session } } = await sbClient.auth.getSession();
+      if (session?.user) {
+        currentUser = session.user;
+        if (!playerName) {
+          const gName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+          if (gName) { playerName = gName; localStorage.setItem('sq_name', playerName); }
+        }
       }
-    }
+    } catch(e) {}
   }
   const btn = document.getElementById('authNavBtn');
   if (currentUser) {
-    const rarest = getRarestShape();
-    if (rarest) {
-      btn.innerHTML = rarest.svgStr;
-      btn.classList.add('has-shape');
-    } else {
-      const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || '';
-      btn.textContent = (name[0]||'?').toUpperCase();
+    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || '';
+    const initial = (name[0]||'?').toUpperCase();
+    try {
+      const rarest = getRarestShape();
+      if (rarest) {
+        btn.innerHTML = rarest.svgStr;
+        btn.classList.add('has-shape');
+      } else {
+        btn.textContent = initial;
+        btn.classList.remove('has-shape');
+      }
+    } catch(e) {
+      btn.textContent = initial;
       btn.classList.remove('has-shape');
     }
-    btn.title = currentUser.user_metadata?.full_name || currentUser.email || '';
+    btn.title = name || currentUser.email || '';
     btn.classList.add('signed-in');
   } else {
     btn.innerHTML = '';
