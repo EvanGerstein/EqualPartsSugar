@@ -563,42 +563,42 @@ const SIZE_MODS = [
 // ── Rods — affect the weighted roll odds ──
 // tiers: { vfxLevel: multiplier } — vfx levels: 1=common 2=uncommon 3=rare 4=epic 5=legendary 6=mythic
 // special: { effectId: multiplier } — boost a specific effect
-// cooldown: multiplier applied to LOCK_MS timers (lower = faster casts)
+// castMs: flat cooldown between every roll in milliseconds
 const RODS = [
   { id:'twig',      label:'Twig',          emoji:'🪵', color:'#a07850',
     desc:'A stick from the ground. Humble beginnings.',
-    price:0, cooldown:1.0, tiers:{} },
+    price:0, castMs:5000, tiers:{} },
   { id:'iron',      label:'Iron Rod',      emoji:'⚙️',  color:'#909090',
-    desc:'Weighted metal tip. Rare effects more likely, slightly faster.',
-    price:8000, cooldown:0.85, tiers:{ 3:1.6 } },
+    desc:'Weighted metal tip. Rare effects more likely, quicker pace.',
+    price:8000, castMs:3500, tiers:{ 3:1.6 } },
   { id:'mossy',     label:'Mossy Rod',     emoji:'🌿', color:'#70a840',
     desc:'Ancient and overgrown. Better odds and noticeably quicker.',
-    price:32000, cooldown:0.72, tiers:{ 2:1.4, 3:2.4, 4:2.5 } },
+    price:32000, castMs:2500, tiers:{ 2:1.4, 3:2.4, 4:2.5 } },
   { id:'prism',     label:'Prism Rod',     emoji:'🔷', color:'#60c0e0',
     desc:'Light refracts through it. Epic effects shine, cast pace picks up.',
-    price:100000, cooldown:0.58, tiers:{ 2:1.3, 3:2.8, 4:5, 5:3 } },
+    price:100000, castMs:1500, tiers:{ 2:1.3, 3:2.8, 4:5, 5:3 } },
   { id:'void',      label:'Void Rod',      emoji:'🌑', color:'#8040c0',
-    desc:'Forged in absence. Legendary effects stir and waits grow short.',
-    price:320000, cooldown:0.44, tiers:{ 3:3, 4:7, 5:7, 6:4 } },
+    desc:'Forged in absence. Legendary effects stir and the wait is short.',
+    price:320000, castMs:750, tiers:{ 3:3, 4:7, 5:7, 6:4 } },
   { id:'celestial', label:'Celestial Rod', emoji:'✨', color:'#90b8ff',
-    desc:'Star-forged. Mythic effects reachable, barely any wait between casts.',
-    price:950000, cooldown:0.30, tiers:{ 3:3.5, 4:9, 5:12, 6:10 } },
-  // ── Quest rods: unlocked by showcase/play achievements ──
+    desc:'Star-forged. Mythic effects reachable with barely any wait.',
+    price:950000, castMs:300, tiers:{ 3:3.5, 4:9, 5:12, 6:10 } },
+  // ── Quest rods ──
   { id:'rot',       label:'Rot Rod',       emoji:'☣️', color:'#80a030',
     desc:'Festers with plague. Plague effects 8× more likely.',
-    price:0, cooldown:1.0, secret:true,
+    price:0, castMs:5000, secret:true,
     unlockHint:'Infect 25 shapes in the Showcase',
     unlockKey:'sq_ach_plague', unlockGoal:25,
     special:{ 'Plague':8 } },
   { id:'ember',     label:'Ember Rod',     emoji:'🔥', color:'#d04818',
     desc:'Still smouldering. Inferno & Phoenix 8× more likely.',
-    price:0, cooldown:1.0, secret:true,
+    price:0, castMs:5000, secret:true,
     unlockHint:'Burn 25 shapes in the Showcase',
     unlockKey:'sq_ach_burns', unlockGoal:25,
     special:{ 'Inferno':8, 'Phoenix':8 } },
   { id:'hasty',     label:'Hasty Rod',     emoji:'⚡', color:'#c0a020',
-    desc:"Casts in a flash but luck isn't on your side. Rare+ effects less likely — great for grinding coins fast.",
-    price:0, cooldown:0.18, secret:true,
+    desc:"Casts almost instantly but luck isn't on your side. Rare+ effects much less likely — great for grinding coins fast.",
+    price:0, castMs:200, secret:true,
     unlockHint:'Cast 300 times total',
     unlockKey:'sq_ach_casts', unlockGoal:300,
     tiers:{ 3:0.35, 4:0.15, 5:0.08, 6:0.05 } },
@@ -1307,12 +1307,10 @@ function runCutscene(shape, effect, size, onDone){
 // RENDER
 // ═══════════════════════════════════════════════
 let coinCount=parseInt(localStorage.getItem('sq_coins')||'0'),castLocked=false,lockTimer=null;
-const LOCK_MS=[0,0,1800,3200,5000,7000,10000];
 
-function setCastLock(tier){
-  if(tier<=1){castLocked=false;updateCastBtn(false);return;}
+function setCastLock(){
   const rod=RODS.find(r=>r.id===playerRod)||RODS[0];
-  const ms=Math.round((LOCK_MS[Math.min(tier,6)]||2000)*(rod.cooldown||1.0));
+  const ms=rod.castMs||0;
   if(ms<=80){castLocked=false;updateCastBtn(false);return;}
   castLocked=true;updateCastBtn(true);
   if(lockTimer) clearTimeout(lockTimer);
@@ -1373,6 +1371,7 @@ function renderShape(shape,effect,size=null){
   addXP(Math.round(ptsVal*.75));
   recordRoll(shape,effect,ptsVal,size);
   spawnVFX(effect.vfx,effect.color);
+  setCastLock();
   // Track total casts for Hasty Rod quest
   const tc=parseInt(localStorage.getItem('sq_ach_casts')||'0')+1;
   localStorage.setItem('sq_ach_casts',tc);
@@ -1820,22 +1819,21 @@ function openRodDetail(id) {
     extraEl.innerHTML = '';
   }
 
-  // Cooldown display (show rare/epic reference)
+  // Cooldown display
   const priceEl = document.getElementById('rdPrice');
-  if(canSee && rod.cooldown !== undefined) {
-    const rareMs = Math.round(LOCK_MS[3] * rod.cooldown);
-    const epicMs = Math.round(LOCK_MS[4] * rod.cooldown);
-    const label = rareMs <= 300 ? 'Instant' : (rareMs/1000).toFixed(1)+'s';
-    const epicLabel = epicMs <= 300 ? 'Instant' : (epicMs/1000).toFixed(1)+'s';
-    const pct = Math.max(6, Math.round((1 - rod.cooldown) * 100));
-    const barColor = rod.cooldown <= 0.25 ? '#c0a020' : rod.cooldown <= 0.5 ? '#8040c0' : rod.cooldown <= 0.75 ? '#60c0e0' : '#909090';
+  if(canSee && rod.castMs !== undefined) {
+    const ms = rod.castMs;
+    const label = ms <= 300 ? 'Instant' : ms < 1000 ? ms+'ms' : (ms/1000).toFixed(ms%1000===0?0:1)+'s';
+    const maxMs = 5000;
+    const speedPct = Math.max(4, Math.round((1 - ms/maxMs)*100));
+    const barColor = ms <= 300 ? '#90b8ff' : ms <= 800 ? '#8040c0' : ms <= 1600 ? '#60c0e0' : ms <= 3000 ? '#70a840' : '#909090';
     priceEl.innerHTML = `
-      <div style="font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);margin-bottom:4px">Cooldown</div>
+      <div style="font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--soft);margin-bottom:5px">Cooldown</div>
       <div style="display:flex;align-items:center;gap:8px;width:100%">
         <div style="flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${barColor};border-radius:2px"></div>
+          <div style="width:${speedPct}%;height:100%;background:${barColor};border-radius:2px"></div>
         </div>
-        <div style="font-size:.6rem;color:var(--soft);white-space:nowrap">Rare ${label} · Epic ${epicLabel}</div>
+        <div style="font-size:.62rem;color:var(--soft);white-space:nowrap">${label}</div>
       </div>`;
   } else {
     priceEl.innerHTML = '';
