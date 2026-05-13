@@ -1536,7 +1536,24 @@ async function submitScore() {
     .slice(0, 15)
     .map(e => ({ s: e.shape.id, e: e.effect.id, z: e.size && e.size.id ? e.size.id : null }));
   const showcaseJson = JSON.stringify(showcaseArr);
-  await sbUpsert('players', {
+
+  // ── Anti-exploit: one leaderboard entry per player ──
+  // If the player changed their name since last submit, delete the old entry first.
+  const prevName = localStorage.getItem('sq_submitted_name');
+  const anonHeaders = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Prefer': 'return=minimal' };
+  if (prevName && prevName !== playerName) {
+    // Remove old name row so they can't accumulate multiple entries
+    await fetch(`${SB_URL}/rest/v1/players?name=eq.${encodeURIComponent(prevName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
+    await fetch(`${SB_URL}/rest/v1/school_scores?player_name=eq.${encodeURIComponent(prevName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
+  }
+  // Also: if user is logged in, wipe any other rows they may have submitted under old names
+  // (uses user_id column if it exists; harmless no-op if it doesn't)
+  if (currentUser) {
+    await fetch(`${SB_URL}/rest/v1/players?user_id=eq.${encodeURIComponent(currentUser.id)}&name=neq.${encodeURIComponent(playerName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
+  }
+  localStorage.setItem('sq_submitted_name', playerName);
+
+  const playerRow = {
     name: playerName,
     school: playerSchool||'',
     coins: coinCount,
@@ -1546,9 +1563,12 @@ async function submitScore() {
     rarest_label: rarest ? rarest.rarityLabel : null,
     rarest_color: rarest ? rarest.effectColor : null,
     showcase_json: showcaseJson,
-  });
+  };
+  if (currentUser) playerRow.user_id = currentUser.id;
+  await sbUpsert('players', playerRow);
+
   if(playerSchool) {
-    await sbUpsert('school_scores', {
+    const schoolRow = {
       school_name: playerSchool,
       player_name: playerName,
       coins: coinCount,
@@ -1558,7 +1578,8 @@ async function submitScore() {
       rarest_label: rarest ? rarest.rarityLabel : null,
       rarest_color: rarest ? rarest.effectColor : null,
       showcase_json: showcaseJson,
-    });
+    };
+    await sbUpsert('school_scores', schoolRow);
     const members = await sbGet('school_scores', `school_name=eq.${encodeURIComponent(playerSchool)}&select=coins`);
     const totalCoins = members.reduce((s,x)=>s+x.coins,0);
     await sbUpsert('schools', { name: playerSchool, member_count: members.length, total_coins: totalCoins });
@@ -1791,8 +1812,7 @@ async function deleteSchool(name) {
 async function deletePlayer(name) {
   if(!confirm(`Remove all leaderboard entries for "${name}"?`)) return;
   try {
-    const { data: { session } } = await sbClient.auth.getSession();
-    const jwt = session?.access_token || SB_KEY;
+    const jwt = _getJWT() || SB_KEY;
     const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
     const enc = encodeURIComponent(name);
     const [r1, r2] = await Promise.all([
