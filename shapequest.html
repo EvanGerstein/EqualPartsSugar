@@ -1537,17 +1537,32 @@ async function submitScore() {
     .map(e => ({ s: e.shape.id, e: e.effect.id, z: e.size && e.size.id ? e.size.id : null }));
   const showcaseJson = JSON.stringify(showcaseArr);
 
-  // ── Anti-exploit: one leaderboard entry per player ──
-  // If the player changed their name since last submit, delete the old entry first.
-  const prevName = localStorage.getItem('sq_submitted_name');
   const anonHeaders = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Prefer': 'return=minimal' };
+
+  // ── Guard 1: never overwrite a higher existing score ──
+  // Check both by name AND by user_id (if logged in) to find any prior entry.
+  let existingCoins = 0;
+  try {
+    const byName = await sbGet('players', `name=eq.${encodeURIComponent(playerName)}&select=coins`);
+    if (byName.length) existingCoins = Math.max(existingCoins, byName[0].coins || 0);
+    if (currentUser) {
+      const byUid = await sbGet('players', `user_id=eq.${encodeURIComponent(currentUser.id)}&select=coins`);
+      if (byUid.length) existingCoins = Math.max(existingCoins, byUid[0].coins || 0);
+    }
+  } catch(e) {}
+  if (coinCount < existingCoins) {
+    // Local coin count is lower than what's already on the board — don't downgrade.
+    console.warn(`[ShapeQuest] submitScore blocked: local ${coinCount} < leaderboard ${existingCoins}`);
+    return;
+  }
+
+  // ── Guard 2: one entry per player — delete stale rows before upserting ──
+  const prevName = localStorage.getItem('sq_submitted_name');
   if (prevName && prevName !== playerName) {
-    // Remove old name row so they can't accumulate multiple entries
     await fetch(`${SB_URL}/rest/v1/players?name=eq.${encodeURIComponent(prevName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
     await fetch(`${SB_URL}/rest/v1/school_scores?player_name=eq.${encodeURIComponent(prevName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
   }
-  // Also: if user is logged in, wipe any other rows they may have submitted under old names
-  // (uses user_id column if it exists; harmless no-op if it doesn't)
+  // If logged in, also wipe any rows tied to this user_id under a different name
   if (currentUser) {
     await fetch(`${SB_URL}/rest/v1/players?user_id=eq.${encodeURIComponent(currentUser.id)}&name=neq.${encodeURIComponent(playerName)}`, { method: 'DELETE', headers: anonHeaders }).catch(()=>{});
   }
