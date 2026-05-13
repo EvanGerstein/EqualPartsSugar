@@ -366,9 +366,24 @@ nav a:hover,nav a.on { color:var(--ink); }
 .daily-claim-btn:hover { opacity:.8; }
 
 /* ── Prestige ── */
-.prestige-btn { display:block;margin-top:8px;font-family:'DM Mono',monospace;font-size:.48rem;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,#ffd040,#ff9020);color:#1c1c1a;border:none;border-radius:7px;padding:5px 10px;cursor:pointer;white-space:nowrap; }
-.prestige-btn:hover { opacity:.85; }
 .lb-prestige { font-size:.65rem;margin-left:3px; }
+
+/* ── Quests Page ── */
+#quests { position:fixed;inset:0;z-index:15;background:var(--bg);display:none;flex-direction:column;opacity:0;transition:opacity .25s; }
+#quests.active { opacity:1; }
+.quest-section-label { font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--soft);padding:20px 0 8px;border-top:1px solid var(--line);margin-top:4px; }
+.quest-section-label:first-child { border-top:none;padding-top:0;margin-top:0; }
+.quest-daily-card { background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:4px; }
+.prestige-quest-card { background:linear-gradient(135deg,#fffdf5,#fff8e8);border:1.5px solid #f0d06055;border-radius:14px;padding:18px 20px;margin-bottom:4px; }
+.prestige-quest-badge { font-size:.48rem;letter-spacing:2px;text-transform:uppercase;color:#c8900a;margin-bottom:6px; }
+.prestige-quest-title { font-family:'Instrument Serif',serif;font-size:1.05rem;color:var(--ink);margin-bottom:4px; }
+.prestige-quest-desc { font-size:.62rem;color:var(--soft);line-height:1.6;margin-bottom:10px; }
+.prestige-action-btn { font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,#ffd040,#ff9020);color:#1c1c1a;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;transition:opacity .15s; }
+.prestige-action-btn:hover { opacity:.85; }
+.prestige-level-note { font-size:.6rem;color:var(--soft);font-style:italic; }
+.prestige-prog-wrap { display:flex;align-items:center;gap:8px;margin-bottom:6px; }
+.prestige-prog { flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden; }
+.prestige-prog-fill { height:100%;background:linear-gradient(90deg,#ffd040,#ff9020);border-radius:2px;transition:width .4s; }
 
 /* ── Achievements ── */
 .ach-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:0 0 20px; }
@@ -388,6 +403,7 @@ nav a:hover,nav a.on { color:var(--ink); }
   <a class="on" onclick="showPage('collect')">Collect</a>
   <a onclick="showPage('catalogue')">Catalogue</a>
   <a onclick="showPage('shop')">Shop</a>
+  <a onclick="showPage('quests')">Quests</a>
   <a onclick="showPage('ranks')">Ranks</a>
   <a id="authNavBtn" onclick="openAuthModal()">Sign In</a>
 </nav>
@@ -445,22 +461,28 @@ nav a:hover,nav a.on { color:var(--ink); }
   </div>
 </div>
 
+<!-- Quests -->
+<div id="quests">
+  <div class="shop-header">
+    <div>
+      <div class="shop-title">Quests</div>
+      <div class="shop-sub" id="questsSub"></div>
+    </div>
+  </div>
+  <div class="shop-grid-wrap" id="questsBody"></div>
+</div>
+
 <!-- Catalogue -->
 <div id="catalogue">
   <div class="cat-header">
     <div class="cat-title">Catalogue</div>
     <div style="display:flex;align-items:center;gap:14px">
       <a class="showcase-open-btn" onclick="openMyShowcase()">Showcase</a>
-      <a class="showcase-open-btn" onclick="toggleAchievements()">Achievements</a>
       <div class="cat-count" id="catCount">0 shapes</div>
     </div>
   </div>
   <div class="cat-grid-wrap">
     <div class="cat-grid" id="catGrid"></div>
-    <div id="achPanel" style="display:none;padding:20px 0 40px">
-      <div class="cat-section" style="margin-top:0">Achievements</div>
-      <div id="achGrid" class="ach-grid"></div>
-    </div>
   </div>
 </div>
 
@@ -552,7 +574,6 @@ nav a:hover,nav a.on { color:var(--ink); }
     <div class="cast-lbl" id="castLbl">Roll</div>
     <div class="cd-track" id="cdTrack"><div class="cd-fill" id="cdFill"></div></div>
   </div>
-  <div id="dailyCard" class="daily-card"></div>
 </div>
 
 <script>
@@ -1610,19 +1631,68 @@ function doPrestige() {
 }
 
 function renderPrestigeBtn() {
-  let el = document.getElementById('prestigeBtn');
-  if (canPrestige()) {
-    if (!el) {
-      el = document.createElement('button');
-      el.id = 'prestigeBtn';
-      el.className = 'prestige-btn';
-      el.onclick = doPrestige;
-      document.querySelector('.corner-stat').appendChild(el);
-    }
-    el.textContent = `⭐ Prestige ${playerPrestige + 1}`;
-  } else if (el) {
-    el.remove();
-  }
+  // Prestige is now shown in the Quests page; re-render if it's currently open
+  if (currentPage === 'quests') renderQuestsPage();
+}
+
+function renderQuestsPage() {
+  const body = document.getElementById('questsBody');
+  if (!body) return;
+
+  // ── Daily challenge ──
+  const ch = getDailyChallenge();
+  const state = getDailyChallengeState();
+  const pct = Math.min(100, (state.progress / ch.count) * 100);
+  const done = state.progress >= ch.count;
+  const claimed = state.claimed;
+  const dailyHtml = `
+    <div class="quest-daily-card">
+      <div class="daily-label">Daily Challenge</div>
+      <div class="daily-desc">${ch.icon} ${ch.desc}</div>
+      <div class="daily-bar-wrap"><div class="daily-bar-fill" style="width:${pct}%"></div></div>
+      <div class="daily-footer">
+        <span class="daily-progress">${state.progress}/${ch.count}</span>
+        ${claimed ? '<span class="daily-claimed">✓ Claimed</span>'
+          : done ? `<button class="daily-claim-btn" onclick="claimDailyReward()">Claim +${ch.reward.toLocaleString()}</button>`
+                 : `<span class="daily-reward">+${ch.reward.toLocaleString()} coins</span>`}
+      </div>
+    </div>`;
+
+  // ── Prestige ──
+  const lvlPct = Math.min(100, (playerLevel / 50) * 100);
+  const prestigeHtml = `
+    <div class="prestige-quest-card">
+      <div class="prestige-quest-badge">Prestige System${playerPrestige > 0 ? ` — ⭐ ×${playerPrestige}` : ''}</div>
+      <div class="prestige-quest-title">${canPrestige() ? `⭐ Ready to Prestige!` : `Level ${playerLevel} / 50`}</div>
+      <div class="prestige-quest-desc">Reset your coins, level, and rod to start again — but your collection and achievements stay. Unlocks the Starforged Rod on first prestige.</div>
+      ${canPrestige()
+        ? `<button class="prestige-action-btn" onclick="doPrestige()">⭐ Prestige → Rank ${playerPrestige + 1}</button>`
+        : `<div class="prestige-prog-wrap">
+             <div class="prestige-prog"><div class="prestige-prog-fill" style="width:${lvlPct}%"></div></div>
+             <span class="prestige-level-note">${50 - playerLevel} levels to go</span>
+           </div>`}
+    </div>`;
+
+  // ── Achievements ──
+  const achHtml = ACHIEVEMENTS.map(a => {
+    const unlocked = unlockedAchs.has(a.id);
+    return `<div class="ach-card${unlocked ? '' : ' ach-locked'}">
+      <div class="ach-icon">${unlocked ? a.icon : '🔒'}</div>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div>
+    </div>`;
+  }).join('');
+
+  const unlockedCount = ACHIEVEMENTS.filter(a => unlockedAchs.has(a.id)).length;
+  document.getElementById('questsSub').textContent = `${unlockedCount}/${ACHIEVEMENTS.length} achievements`;
+
+  body.innerHTML = `
+    <div class="quest-section-label">Daily Challenge</div>
+    ${dailyHtml}
+    <div class="quest-section-label">Prestige</div>
+    ${prestigeHtml}
+    <div class="quest-section-label">Achievements</div>
+    <div class="ach-grid">${achHtml}</div>`;
 }
 
 // ═══════════════════════════════════════════════
@@ -1763,25 +1833,8 @@ function claimDailyReward() {
 }
 
 function renderDailyChallenge() {
-  const el = document.getElementById('dailyCard');
-  if (!el) return;
-  const ch = getDailyChallenge();
-  const state = getDailyChallengeState();
-  const pct = Math.min(100, (state.progress / ch.count) * 100);
-  const done = state.progress >= ch.count;
-  const claimed = state.claimed;
-  el.innerHTML = `
-    <div class="daily-label">Daily Challenge</div>
-    <div class="daily-desc">${ch.icon} ${ch.desc}</div>
-    <div class="daily-bar-wrap">
-      <div class="daily-bar-fill" style="width:${pct}%"></div>
-    </div>
-    <div class="daily-footer">
-      <span class="daily-progress">${state.progress}/${ch.count}</span>
-      ${claimed ? '<span class="daily-claimed">✓ Claimed</span>'
-        : done ? `<button class="daily-claim-btn" onclick="claimDailyReward()">Claim +${ch.reward.toLocaleString()}</button>`
-               : `<span class="daily-reward">+${ch.reward.toLocaleString()} coins</span>`}
-    </div>`;
+  // Daily challenge now lives in the Quests page; re-render if it's open
+  if (currentPage === 'quests') renderQuestsPage();
 }
 
 // ═══════════════════════════════════════════════
@@ -2710,17 +2763,18 @@ let currentPage = 'collect';
 function showPage(page) {
   currentPage = page;
   document.querySelectorAll('nav a').forEach((a,i)=>{
-    a.classList.toggle('on',(i===0&&page==='collect')||(i===1&&page==='catalogue')||(i===2&&page==='shop')||(i===3&&page==='ranks'));
+    a.classList.toggle('on',(i===0&&page==='collect')||(i===1&&page==='catalogue')||(i===2&&page==='shop')||(i===3&&page==='quests')||(i===4&&page==='ranks'));
   });
   const cat=document.getElementById('catalogue');
   const ranks=document.getElementById('ranks');
   const shop=document.getElementById('shop');
+  const quests=document.getElementById('quests');
   const stage=document.querySelector('.stage');
   const cstat=document.querySelector('.corner-stat');
   const ccoins=document.querySelector('.corner-coins');
 
   // hide all overlays first
-  [cat,ranks,shop].forEach(el=>{
+  [cat,ranks,shop,quests].forEach(el=>{
     el.classList.remove('active');
     el.style.pointerEvents='none';
     setTimeout(()=>{ if(!el.classList.contains('active')) el.style.display='none'; el.style.pointerEvents='all'; },260);
@@ -2729,7 +2783,6 @@ function showPage(page) {
   if(page==='collect'){
     stage.style.opacity='1'; stage.style.pointerEvents='';
     cstat.style.opacity='1'; ccoins.style.opacity='1';
-    renderDailyChallenge(); renderPrestigeBtn();
   } else if(page==='catalogue'){
     renderCatalogue();
     cat.style.display='flex'; cat.style.pointerEvents='all';
@@ -2740,6 +2793,12 @@ function showPage(page) {
     renderShopPage();
     shop.style.display='flex'; shop.style.pointerEvents='all';
     requestAnimationFrame(()=>shop.classList.add('active'));
+    stage.style.opacity='0'; stage.style.pointerEvents='none';
+    cstat.style.opacity='0'; ccoins.style.opacity='0';
+  } else if(page==='quests'){
+    renderQuestsPage();
+    quests.style.display='flex'; quests.style.pointerEvents='all';
+    requestAnimationFrame(()=>quests.classList.add('active'));
     stage.style.opacity='0'; stage.style.pointerEvents='none';
     cstat.style.opacity='0'; ccoins.style.opacity='0';
   } else if(page==='ranks'){
@@ -3867,8 +3926,6 @@ updateAuthUI();
 // onAuthStateChange fires with INITIAL_SESSION on every page load — no need to call
 // getSession() separately (it can hang on the live site). Just run school moderation.
 _autoModerateSchools();
-renderDailyChallenge();
-renderPrestigeBtn();
 checkAchievements();
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'),null,true);
 </script>
