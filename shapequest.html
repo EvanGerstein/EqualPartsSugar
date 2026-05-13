@@ -351,6 +351,34 @@ nav a:hover,nav a.on { color:var(--ink); }
 #cutscene.active .cutscene-text { opacity:1;transform:scale(1); }
 .cutscene-title { font-size:3rem;letter-spacing:-.5px;line-height:1;color:white;text-shadow:0 0 40px rgba(255,255,255,.8); }
 .cutscene-sub { font-size:.8rem;letter-spacing:3px;text-transform:uppercase;margin-top:10px;opacity:.7; }
+
+/* ── Daily Challenge ── */
+.daily-card { margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;width:260px;max-width:90vw; }
+.daily-label { font-size:.5rem;letter-spacing:2px;text-transform:uppercase;color:var(--soft);margin-bottom:4px; }
+.daily-desc { font-size:.72rem;font-weight:500;color:var(--ink);margin-bottom:8px; }
+.daily-bar-wrap { height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:8px; }
+.daily-bar-fill { height:100%;background:var(--ink);border-radius:4px;transition:width .4s; }
+.daily-footer { display:flex;align-items:center;justify-content:space-between; }
+.daily-progress { font-size:.6rem;color:var(--soft); }
+.daily-reward { font-size:.6rem;color:var(--soft); }
+.daily-claimed { font-size:.6rem;color:#50a050;font-weight:500; }
+.daily-claim-btn { font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.5px;text-transform:uppercase;background:var(--ink);color:#f5f4f0;border:none;border-radius:7px;padding:5px 12px;cursor:pointer;transition:opacity .15s; }
+.daily-claim-btn:hover { opacity:.8; }
+
+/* ── Prestige ── */
+.prestige-btn { display:block;margin-top:8px;font-family:'DM Mono',monospace;font-size:.48rem;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,#ffd040,#ff9020);color:#1c1c1a;border:none;border-radius:7px;padding:5px 10px;cursor:pointer;white-space:nowrap; }
+.prestige-btn:hover { opacity:.85; }
+.lb-prestige { font-size:.65rem;margin-left:3px; }
+
+/* ── Achievements ── */
+.ach-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:0 0 20px; }
+.ach-card { background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px; }
+.ach-card.ach-locked { opacity:.4;filter:grayscale(1); }
+.ach-icon { font-size:1.6rem;line-height:1.2; }
+.ach-name { font-size:.65rem;font-weight:500;color:var(--ink); }
+.ach-desc { font-size:.55rem;color:var(--soft);line-height:1.4; }
+
+/* ── Cosmetics in shop reuse rod-card styles ── */
 </style>
 </head>
 <body>
@@ -398,6 +426,7 @@ nav a:hover,nav a.on { color:var(--ink); }
     <div class="ranks-tabs">
       <div class="ranks-tab on" onclick="switchRanksTab('global')">Global</div>
       <div class="ranks-tab" onclick="switchRanksTab('school')">School</div>
+      <div class="ranks-tab" onclick="switchRanksTab('feed')">Feed</div>
     </div>
   </div>
   <div class="ranks-body" id="ranksBody"></div>
@@ -422,11 +451,16 @@ nav a:hover,nav a.on { color:var(--ink); }
     <div class="cat-title">Catalogue</div>
     <div style="display:flex;align-items:center;gap:14px">
       <a class="showcase-open-btn" onclick="openMyShowcase()">Showcase</a>
+      <a class="showcase-open-btn" onclick="toggleAchievements()">Achievements</a>
       <div class="cat-count" id="catCount">0 shapes</div>
     </div>
   </div>
   <div class="cat-grid-wrap">
     <div class="cat-grid" id="catGrid"></div>
+    <div id="achPanel" style="display:none;padding:20px 0 40px">
+      <div class="cat-section" style="margin-top:0">Achievements</div>
+      <div id="achGrid" class="ach-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -518,6 +552,7 @@ nav a:hover,nav a.on { color:var(--ink); }
     <div class="cast-lbl" id="castLbl">Roll</div>
     <div class="cd-track" id="cdTrack"><div class="cd-fill" id="cdFill"></div></div>
   </div>
+  <div id="dailyCard" class="daily-card"></div>
 </div>
 
 <script>
@@ -542,6 +577,9 @@ const SHAPES = [
   { id:'crescent',  label:'Crescent',  sides:0,  w:3  },
   { id:'gem',       label:'Gem',       sides:0,  w:2  },
   { id:'ring',      label:'Ring',      sides:0,  w:1  },
+  // ── Ultra-rare new shapes ──
+  { id:'spiral',   label:'Spiral',    sides:0,  w:0.8 },
+  { id:'fractal',  label:'Fractal',   sides:0,  w:0.3 },
 ];
 
 // vfx tiers: 0=none 1=dust 2=ring+sparks 3=beams+shards 4=storm 5=insane 6=CUTSCENE
@@ -577,6 +615,10 @@ const EFFECTS = [
   { id:'Gravity',   label:'Gravity',   color:'#9878c8', fill:'#100818', vfx:5, w:1   },
   { id:'Magnet',    label:'Magnet',    color:'#4090d8', fill:'#102840', vfx:3, w:6   },
   { id:'Tide',      label:'Tide',      color:'#2898c8', fill:'#082838', vfx:3, w:10  },
+  // ── New ultra-rare effects ──
+  { id:'Nebula',    label:'Nebula',    color:'#b060f0', fill:'#3010a0', vfx:5, w:0.5 },
+  { id:'PrismNova', label:'Prism Nova',color:'#ff80c0', fill:'#ff4080', vfx:6, w:0.4 },
+  { id:'VoidRift',  label:'Void Rift', color:'#d020ff', fill:'#100020', vfx:6, w:0.3 },
 ];
 
 // Size modifiers — rolled as a third independent dimension
@@ -630,6 +672,12 @@ const RODS = [
     unlockHint:'Cast 300 times total',
     unlockKey:'sq_ach_casts', unlockGoal:300,
     tiers:{ 3:0.35, 4:0.15, 5:0.08, 6:0.05 } },
+  { id:'starforged', label:'Starforged Rod', emoji:'🌟', color:'#ffd040',
+    desc:'Forged from prestige. Every tier of rarity bends toward you.',
+    price:0, castMs:200, secret:true,
+    unlockHint:'Prestige once',
+    unlockKey:'sq_prestige', unlockGoal:1,
+    tiers:{ 2:1.5, 3:3, 4:8, 5:10, 6:8 } },
 ];
 
 // Combined score — factors shape × effect × size probability
@@ -702,6 +750,14 @@ function shapeGeometry(shapeId, fill, filter='') {
   if(shapeId==='crescent')  return `<path d="M70,10 A60,60 0 1,0 70,130 A40,55 0 1,1 70,10 Z" fill="${fill}" ${filter}/>`;
   if(shapeId==='gem')       return `<polygon points="70,8 108,28 122,70 108,112 70,132 32,112 18,70 32,28" fill="${fill}" ${filter}/>`;
   if(shapeId==='ring')      return `<path fill-rule="evenodd" d="M70,14 A56,56 0 1,1 70,126 A56,56 0 1,1 70,14 Z M70,38 A32,32 0 1,0 70,102 A32,32 0 1,0 70,38 Z" fill="${fill}" ${filter}/>`;
+  if(shapeId==='spiral'){
+    const sp=[];for(let i=0;i<=380;i++){const t=(i/380)*Math.PI*6;const r=5+t*2.44;sp.push(`${(70+Math.cos(t-Math.PI/2)*r).toFixed(1)},${(70+Math.sin(t-Math.PI/2)*r).toFixed(1)}`);}
+    return `<polyline points="${sp.join(' ')}" fill="none" stroke="${fill}" stroke-width="12" stroke-linecap="round" ${filter}/>`;
+  }
+  if(shapeId==='fractal'){
+    const o=starPts(70,70,62,28,8),i2=starPts(70,70,40,16,6);
+    return `<polygon points="${o}" fill="${fill}" opacity=".5" ${filter}/><polygon points="${i2}" fill="${fill}" ${filter}/>`;
+  }
   return `<polygon points="${polyPts(70,70,60,s.sides)}" fill="${fill}" ${filter}/>`;
 }
 
@@ -748,6 +804,11 @@ function buildSVG(shapeId, effect, sizeScale=1.0) {
             <radialGradient id="acs" cx="30%" cy="25%"><stop offset="0%" stop-color="#e080ff" stop-opacity=".6"/><stop offset="100%" stop-color="transparent"/></radialGradient>`,
     Celestial:`<radialGradient id="celg" cx="50%" cy="50%"><stop offset="0%" stop-color="#ffffff"/><stop offset="30%" stop-color="#d0e8ff"/><stop offset="65%" stop-color="#8090d0"/><stop offset="100%" stop-color="#202860"/></radialGradient>
                <radialGradient id="cels" cx="30%" cy="25%"><stop offset="0%" stop-color="#ffffff" stop-opacity=".8"/><stop offset="100%" stop-color="transparent"/></radialGradient>`,
+    Nebula:`<radialGradient id="nelg" cx="40%" cy="35%"><stop offset="0%" stop-color="#e080ff"/><stop offset="35%" stop-color="#8030d0"/><stop offset="70%" stop-color="#2010a0"/><stop offset="100%" stop-color="#080010"/></radialGradient>
+            <radialGradient id="nels" cx="65%" cy="60%"><stop offset="0%" stop-color="#40a0ff" stop-opacity=".5"/><stop offset="100%" stop-color="transparent"/></radialGradient>`,
+    PrismNova:`<linearGradient id="pnlg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4080"/><stop offset="20%" stop-color="#ff9020"/><stop offset="40%" stop-color="#f0e020"/><stop offset="60%" stop-color="#40e060"/><stop offset="80%" stop-color="#2080ff"/><stop offset="100%" stop-color="#c020ff"/></linearGradient>`,
+    VoidRift:`<radialGradient id="vrlg" cx="50%" cy="50%"><stop offset="0%" stop-color="#8000ff" stop-opacity=".9"/><stop offset="40%" stop-color="#200040"/><stop offset="100%" stop-color="#000000"/></radialGradient>
+              <radialGradient id="vrck" cx="50%" cy="50%"><stop offset="0%" stop-color="#ff80ff" stop-opacity=".7"/><stop offset="100%" stop-color="transparent"/></radialGradient>`,
   };
   if(ef && gradDefs[ef]) defs+=gradDefs[ef];
 
@@ -770,7 +831,10 @@ function buildSVG(shapeId, effect, sizeScale=1.0) {
     <filter id="abyssalglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14" result="b"/><feColorMatrix in="b" type="matrix" values=".2 0 0 0 0  0 .2 0 0 0  0 0 .8 0 .1  0 0 0 1 0" result="void"/><feMerge><feMergeNode in="void"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="divinebloom" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14" result="b"/><feColorMatrix in="b" type="matrix" values="1.2 0 0 0 .1  0 1.1 0 0 .1  0 0 .6 0 0  0 0 0 1 0" result="holy"/><feMerge><feMergeNode in="holy"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="arcaneglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="13" result="b"/><feColorMatrix in="b" type="matrix" values=".8 0 0 0 .1  0 .1 0 0 0  0 0 1.4 0 .2  0 0 0 1 0" result="arc"/><feMerge><feMergeNode in="arc"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <filter id="celestialbloom" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16" result="b"/><feColorMatrix in="b" type="matrix" values=".8 0 0 0 .3  0 .9 0 0 .4  0 0 1.4 0 .3  0 0 0 1 0" result="cel"/><feMerge><feMergeNode in="cel"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    <filter id="celestialbloom" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16" result="b"/><feColorMatrix in="b" type="matrix" values=".8 0 0 0 .3  0 .9 0 0 .4  0 0 1.4 0 .3  0 0 0 1 0" result="cel"/><feMerge><feMergeNode in="cel"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="nebulabloom" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14" result="b"/><feColorMatrix in="b" type="matrix" values=".7 0 0 0 .1  0 .1 0 0 0  0 0 1.5 0 .3  0 0 0 1 0" result="neb"/><feMerge><feMergeNode in="neb"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="prismnova" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="voidriftbloom" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="18" result="b"/><feColorMatrix in="b" type="matrix" values=".5 0 0 0 .2  0 0 0 0 0  0 0 1 0 .3  0 0 0 1 0" result="rift"/><feMerge><feMergeNode in="rift"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
   defs+='</defs>';
 
   // ── determine fill + filter ──
@@ -780,7 +844,8 @@ function buildSVG(shapeId, effect, sizeScale=1.0) {
     Rust:'url(#rug)',Stone:'url(#stg)',Crystal:'url(#crg)',Storm:'url(#smg)',
     Ember:'url(#emg)',Aurora:'url(#aug)',Plague:'url(#plg)',Rune:'url(#rng)',
     Mirage:'url(#mig)',Aqua:'url(#aqg)',Phoenix:'url(#phg)',Abyssal:'url(#abg)',
-    Divine:'url(#dvg)',Arcane:'url(#acg)',Celestial:'url(#celg)' };
+    Divine:'url(#dvg)',Arcane:'url(#acg)',Celestial:'url(#celg)',
+    Nebula:'url(#nelg)',PrismNova:'url(#pnlg)',VoidRift:'url(#vrlg)' };
   const filterMap={ Glow:'filter="url(#gf)"',Shadow:'filter="url(#sf)"',Inferno:'filter="url(#infbloom)"',
     Spectral:'filter="url(#bigglow)"',Frozen:'filter="url(#frostbloom)"',Toxic:'filter="url(#toxicbloom)"',
     Cosmic:'filter="url(#cosmicbloom)"',Gilded:'filter="url(#bigglow)"',
@@ -788,7 +853,8 @@ function buildSVG(shapeId, effect, sizeScale=1.0) {
     Aurora:'filter="url(#auroraglow)"',Plague:'filter="url(#plagueglow)"',
     Rune:'filter="url(#runeglow)"',Phoenix:'filter="url(#phoenixbloom)"',
     Abyssal:'filter="url(#abyssalglow)"',Divine:'filter="url(#divinebloom)"',
-    Arcane:'filter="url(#arcaneglow)"',Celestial:'filter="url(#celestialbloom)"' };
+    Arcane:'filter="url(#arcaneglow)"',Celestial:'filter="url(#celestialbloom)"',
+    Nebula:'filter="url(#nebulabloom)"',PrismNova:'filter="url(#prismnova)"',VoidRift:'filter="url(#voidriftbloom)"' };
 
   const useFill=ef&&fillMap[ef]?fillMap[ef]:effect.fill;
   const useFilter=ef&&filterMap[ef]?filterMap[ef]:'';
@@ -816,6 +882,20 @@ function buildSVG(shapeId, effect, sizeScale=1.0) {
   }
   if(ef==='Phoenix'){
     behind+=shapeGeometry(shapeId,useFill,'filter="url(#infbloom)" opacity=".5"');
+  }
+  if(ef==='Nebula'){
+    behind+=shapeGeometry(shapeId,'url(#nelg)','filter="url(#nebulabloom)" opacity=".5"');
+    behind+=`<circle cx="70" cy="70" r="80" fill="url(#nels)" opacity=".6" filter="url(#softglow)"/>`;
+  }
+  if(ef==='VoidRift'){
+    behind+=shapeGeometry(shapeId,'url(#vrlg)','filter="url(#voidriftbloom)" opacity=".6"');
+    behind+=`<circle cx="70" cy="70" r="70" fill="url(#vrck)" opacity=".25" filter="url(#bigglow)"/>`;
+    // crack lines radiating out
+    over+=`<line x1="70" y1="70" x2="20" y2="10" stroke="#c060ff" stroke-width="1.5" opacity=".6"/><line x1="70" y1="70" x2="128" y2="18" stroke="#8020ff" stroke-width="1" opacity=".5"/><line x1="70" y1="70" x2="140" y2="80" stroke="#c060ff" stroke-width="1.5" opacity=".6"/><line x1="70" y1="70" x2="8" y2="110" stroke="#8020ff" stroke-width="1" opacity=".5"/>`;
+  }
+  if(ef==='PrismNova'){
+    behind+=shapeGeometry(shapeId,'url(#pnlg)','filter="url(#prismnova)" opacity=".45"');
+    behind+=`<circle cx="70" cy="70" r="75" fill="url(#pnlg)" opacity=".12" filter="url(#bigglow)"/>`;
   }
   if(ef==='Radiant'||ef==='Gilded'){
     let rays='';
@@ -1201,7 +1281,7 @@ function runCutscene(shape, effect, size, onDone){
   const W=innerWidth,H=innerHeight;
   const cxcs=W/2,cycs=H/2;
   let frame=0;
-  const FRAMES=(effect.id==='Cosmic'||effect.id==='Celestial')?220:180;
+  const FRAMES=(effect.id==='Cosmic'||effect.id==='Celestial'||effect.id==='PrismNova'||effect.id==='VoidRift')?240:180;
   const csParticles=[];
 
   if(csRaf) cancelAnimationFrame(csRaf);
@@ -1281,6 +1361,28 @@ function runCutscene(shape, effect, size, onDone){
           color:rc[Math.floor(Math.random()*rc.length)],alpha:0.9,decay:.004+Math.random()*.005,delay:Math.floor(Math.random()*35)});
       }
       for(let i=0;i<11;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:6+i*1.4,lw:i%3===0?4:2,color:rc[i%rc.length],alpha:0.85,decay:.006,delay:i*14});
+    } else if(effect.id==='Nebula'){
+      // Slow-drifting nebula dust clouds — purples + blues
+      const rc=['#c060ff','#8030d0','#e080ff','#6040b0','#40a0ff','#9060d8','#ffffff'];
+      for(let i=0;i<160;i++){const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*10;csParticles.push({x:cxcs+(Math.random()-.5)*80,y:cycs+(Math.random()-.5)*80,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:3+Math.random()*9,color:rc[Math.floor(Math.random()*rc.length)],alpha:0.85,decay:.004+Math.random()*.004,delay:Math.floor(Math.random()*40)});}
+      for(let i=0;i<16;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:12+i*1.2,lw:2,color:rc[i%rc.length],alpha:0.7,decay:.006,delay:i*10});
+    } else if(effect.id==='PrismNova'){
+      // Rainbow explosion — every color simultaneously detonates outward
+      const rc=['#ff4080','#ff8020','#f0e020','#40e060','#2080ff','#c020ff','#ffffff','#ff40ff'];
+      for(let i=0;i<200;i++){const a=(i/200)*Math.PI*2+Math.random()*.2,sp=5+Math.random()*20;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*6,color:rc[i%rc.length],alpha:1,decay:.005+Math.random()*.005,delay:Math.floor(Math.random()*25)});}
+      for(let i=0;i<20;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:18+i,lw:3,color:rc[i%rc.length],alpha:1,decay:.008,delay:i*4});
+    } else if(effect.id==='VoidRift'){
+      // Inky darkness tears open — particles shoot outward then get pulled back, sickly violet
+      const rc=['#8000ff','#4000a0','#c060ff','#200040','#ff80ff','#000000','#600080'];
+      for(let i=0;i<180;i++){
+        const a=Math.random()*Math.PI*2, sp=5+Math.random()*22;
+        csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*5,
+          color:rc[Math.floor(Math.random()*rc.length)],alpha:1,decay:.005+Math.random()*.005,delay:Math.floor(Math.random()*28)});
+      }
+      // Imploding rings — start big, shrink inward
+      for(let i=0;i<14;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:80+i*20,dr:-(5+i),lw:2.5,color:rc[i%rc.length],alpha:0.9,decay:.008,delay:i*6});
+      // Outward rings too
+      for(let i=0;i<10;i++) csParticles.push({type:'ring',x:cxcs,y:cycs,r:5,dr:20+i*2,lw:1.5,color:'#c060ff',alpha:0.6,decay:.010,delay:i*8});
     } else {
       // Generic big burst
       for(let i=0;i<100;i++){const a=Math.random()*Math.PI*2,sp=3+Math.random()*14;csParticles.push({x:cxcs,y:cycs,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:2+Math.random()*5,color:effect.color,alpha:1,decay:.009,delay:Math.floor(Math.random()*15)});}
@@ -1291,7 +1393,8 @@ function runCutscene(shape, effect, size, onDone){
   // bg color for cutscene
   const bgColors={Inferno:'#1a0800',Gilded:'#1a1400',Spectral:'#0a0014',Cosmic:'#02040e',Void:'#080010',Eclipse:'#0e0800',
     Phoenix:'#1a0400',Abyssal:'#010108',Divine:'#1a1800',Arcane:'#0a0018',Celestial:'#020614',
-    Gravity:'#020008',Magnet:'#000810',Tide:'#000818',Plague:'#010800'};
+    Gravity:'#020008',Magnet:'#000810',Tide:'#000818',Plague:'#010800',
+    Nebula:'#05000f',PrismNova:'#080008',VoidRift:'#000005'};
   const bg=bgColors[effect.id]||'#08080e';
 
   function drawCS(){
@@ -1423,10 +1526,12 @@ function renderShape(shape,effect,size=null,preview=false){
   recordRoll(shape,effect,ptsVal,size);
   spawnVFX(effect.vfx,effect.color);
   setCastLock();
-  // Track total casts for Hasty Rod quest
+  // Track total casts for Hasty Rod quest + achievements
   const tc=parseInt(localStorage.getItem('sq_ach_casts')||'0')+1;
   localStorage.setItem('sq_ach_casts',tc);
   checkRodUnlocks();
+  checkAchievements(shape, effect, size);
+  updateDailyProgress(shape, effect, size);
 }
 
 let casting=false;
@@ -1475,6 +1580,261 @@ function joinSchool(schoolName) {
 function leaveSchool() {
   playerSchool = '';
   localStorage.removeItem('sq_school');
+}
+
+// ═══════════════════════════════════════════════
+// PRESTIGE
+// ═══════════════════════════════════════════════
+let playerPrestige = parseInt(localStorage.getItem('sq_prestige') || '0');
+
+function canPrestige() { return playerLevel >= 50; }
+
+function doPrestige() {
+  if (!canPrestige()) return;
+  if (!confirm(`Prestige ${playerPrestige + 1}? Your coins, level, XP, and rod reset — but you keep your collection, achievements, and earn a permanent ⭐ on the leaderboard.`)) return;
+  playerPrestige++;
+  localStorage.setItem('sq_prestige', playerPrestige);
+  coinCount = 0; localStorage.setItem('sq_coins', 0);
+  playerLevel = 1; playerXP = 0;
+  localStorage.setItem('sq_level', 1); localStorage.setItem('sq_xp', 0);
+  playerRod = 'twig'; localStorage.setItem('sq_rod', 'twig');
+  ownedRods = new Set(['twig']); localStorage.setItem('sq_owned_rods', '["twig"]');
+  document.getElementById('coins').textContent = '0';
+  updateLevelDisplay();
+  checkRodUnlocks();
+  if (currentUser) saveUserData();
+  showRodToast(`⭐ Prestige ${playerPrestige} achieved!`);
+  renderPrestigeBtn();
+  if (currentPage === 'shop') renderShopPage();
+  checkAchievements();
+}
+
+function renderPrestigeBtn() {
+  let el = document.getElementById('prestigeBtn');
+  if (canPrestige()) {
+    if (!el) {
+      el = document.createElement('button');
+      el.id = 'prestigeBtn';
+      el.className = 'prestige-btn';
+      el.onclick = doPrestige;
+      document.querySelector('.corner-stat').appendChild(el);
+    }
+    el.textContent = `⭐ Prestige ${playerPrestige + 1}`;
+  } else if (el) {
+    el.remove();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ACHIEVEMENTS
+// ═══════════════════════════════════════════════
+const ACHIEVEMENTS = [
+  { id:'first_roll',   icon:'🎣', name:'First Cast',       desc:'Make your first roll' },
+  { id:'first_rare',   icon:'💠', name:'Rare Find',        desc:'Catch a Rare+ effect (vfx ≥ 3)' },
+  { id:'first_epic',   icon:'⚡', name:'Epic Catch',       desc:'Catch an Epic+ effect (vfx ≥ 4)' },
+  { id:'first_legendary', icon:'🌟', name:'Legendary',     desc:'Catch a Legendary+ effect (vfx ≥ 5)' },
+  { id:'first_mythic', icon:'🌌', name:'Mythic Touch',     desc:'Catch a Cosmic, Celestial, Prism Nova, or Void Rift' },
+  { id:'rolls_100',    icon:'💯', name:'Century',          desc:'Cast 100 times total' },
+  { id:'rolls_500',    icon:'🏅', name:'Dedicated',        desc:'Cast 500 times total' },
+  { id:'rolls_1000',   icon:'🏆', name:'Veteran',          desc:'Cast 1,000 times total' },
+  { id:'coins_10k',    icon:'💰', name:'Ten Grand',        desc:'Accumulate 10,000 coins' },
+  { id:'coins_100k',   icon:'🤑', name:'Wealthy',          desc:'Accumulate 100,000 coins' },
+  { id:'coins_1m',     icon:'💎', name:'Millionaire',      desc:'Accumulate 1,000,000 coins' },
+  { id:'level_10',     icon:'📈', name:'Seasoned',         desc:'Reach level 10' },
+  { id:'level_25',     icon:'🎯', name:'Expert',           desc:'Reach level 25' },
+  { id:'level_50',     icon:'👑', name:'Master',           desc:'Reach level 50 — prestige unlocked' },
+  { id:'col_50',       icon:'📦', name:'Collector',        desc:'Own 50 unique shapes' },
+  { id:'col_150',      icon:'🏛️', name:'Hoarder',          desc:'Own 150 unique shapes' },
+  { id:'all_rods',     icon:'🎣', name:'Rod Collector',    desc:'Own all purchasable rods' },
+  { id:'prestige_1',   icon:'⭐', name:'Prestige',         desc:'Prestige for the first time' },
+  { id:'new_effect',   icon:'🌀', name:'Something New',    desc:'Catch a Nebula, Prism Nova, or Void Rift' },
+  { id:'huge_shape',   icon:'🔲', name:'Enormous',         desc:'Catch a Huge shape' },
+];
+
+let unlockedAchs = new Set(JSON.parse(localStorage.getItem('sq_achievements') || '[]'));
+
+function unlockAchievement(id) {
+  if (unlockedAchs.has(id)) return;
+  unlockedAchs.add(id);
+  localStorage.setItem('sq_achievements', JSON.stringify([...unlockedAchs]));
+  const ach = ACHIEVEMENTS.find(a => a.id === id);
+  if (ach) showRodToast(`${ach.icon} Achievement: ${ach.name}`);
+}
+
+function checkAchievements(shape, effect, size) {
+  const casts = parseInt(localStorage.getItem('sq_ach_casts') || '0');
+  if (casts >= 1)    unlockAchievement('first_roll');
+  if (casts >= 100)  unlockAchievement('rolls_100');
+  if (casts >= 500)  unlockAchievement('rolls_500');
+  if (casts >= 1000) unlockAchievement('rolls_1000');
+  if (coinCount >= 10000)   unlockAchievement('coins_10k');
+  if (coinCount >= 100000)  unlockAchievement('coins_100k');
+  if (coinCount >= 1000000) unlockAchievement('coins_1m');
+  if (playerLevel >= 10) unlockAchievement('level_10');
+  if (playerLevel >= 25) unlockAchievement('level_25');
+  if (playerLevel >= 50) unlockAchievement('level_50');
+  const colSize = Object.keys(collection).length;
+  if (colSize >= 50)  unlockAchievement('col_50');
+  if (colSize >= 150) unlockAchievement('col_150');
+  const purchasable = RODS.filter(r => !r.secret && r.price > 0);
+  if (purchasable.every(r => ownedRods.has(r.id))) unlockAchievement('all_rods');
+  if (playerPrestige >= 1) unlockAchievement('prestige_1');
+  if (effect) {
+    if (effect.vfx >= 3) unlockAchievement('first_rare');
+    if (effect.vfx >= 4) unlockAchievement('first_epic');
+    if (effect.vfx >= 5) unlockAchievement('first_legendary');
+    if (effect.vfx >= 6) unlockAchievement('first_mythic');
+    if (['Nebula','PrismNova','VoidRift'].includes(effect.id)) unlockAchievement('new_effect');
+  }
+  if (size && size.id === 'Huge') unlockAchievement('huge_shape');
+  renderPrestigeBtn();
+}
+
+// ═══════════════════════════════════════════════
+// DAILY CHALLENGE
+// ═══════════════════════════════════════════════
+const DAILY_CHALLENGES = [
+  { type:'roll',   count:30,  reward:800,   desc:'Cast 30 times',                     icon:'🎣' },
+  { type:'roll',   count:75,  reward:2000,  desc:'Cast 75 times',                     icon:'🎣' },
+  { type:'effect', id:'Glow',     count:3, reward:600,   desc:'Catch 3 Glow shapes',        icon:'✨' },
+  { type:'effect', id:'Frozen',   count:2, reward:900,   desc:'Catch 2 Frozen shapes',      icon:'❄️' },
+  { type:'effect', id:'Void',     count:1, reward:2500,  desc:'Catch a Void shape',          icon:'🌑' },
+  { type:'effect', id:'Inferno',  count:1, reward:3500,  desc:'Catch an Inferno shape',     icon:'🔥' },
+  { type:'effect', id:'Toxic',    count:3, reward:700,   desc:'Catch 3 Toxic shapes',       icon:'☣️' },
+  { type:'effect', id:'Crystal',  count:2, reward:800,   desc:'Catch 2 Crystal shapes',     icon:'💎' },
+  { type:'effect', id:'Spectral', count:1, reward:5000,  desc:'Catch a Spectral shape',     icon:'👻' },
+  { type:'effect', id:'Storm',    count:2, reward:900,   desc:'Catch 2 Storm shapes',       icon:'⛈️' },
+  { type:'effect', id:'Aurora',   count:2, reward:1200,  desc:'Catch 2 Aurora shapes',      icon:'🌈' },
+  { type:'shape',  id:'star',     count:2, reward:1500,  desc:'Catch 2 Stars',              icon:'⭐' },
+  { type:'shape',  id:'gem',      count:1, reward:2000,  desc:'Catch a Gem',                icon:'💎' },
+  { type:'shape',  id:'ring',     count:1, reward:2500,  desc:'Catch a Ring',               icon:'💍' },
+  { type:'size',   id:'Huge',     count:1, reward:3000,  desc:'Catch a Huge shape',         icon:'🔲' },
+  { type:'size',   id:'Giant',    count:2, reward:1800,  desc:'Catch 2 Giant shapes',       icon:'🔷' },
+  { type:'roll',   count:50,  reward:1200,  desc:'Cast 50 times',                     icon:'🎣' },
+  { type:'effect', id:'Cosmic',   count:1, reward:8000,  desc:'Catch a Cosmic shape',       icon:'🌌' },
+  { type:'effect', id:'Radiant',  count:2, reward:1500,  desc:'Catch 2 Radiant shapes',     icon:'☀️' },
+  { type:'effect', id:'Plague',   count:2, reward:1000,  desc:'Catch 2 Plague shapes',      icon:'🧫' },
+  { type:'effect', id:'Rune',     count:1, reward:3000,  desc:'Catch a Rune shape',         icon:'🔮' },
+  { type:'effect', id:'Gilded',   count:1, reward:4000,  desc:'Catch a Gilded shape',       icon:'✨' },
+  { type:'effect', id:'Phoenix',  count:1, reward:4500,  desc:'Catch a Phoenix shape',      icon:'🦅' },
+  { type:'effect', id:'Divine',   count:1, reward:6000,  desc:'Catch a Divine shape',       icon:'😇' },
+  { type:'shape',  id:'fractal',  count:1, reward:10000, desc:'Catch a Fractal',            icon:'🌀' },
+  { type:'shape',  id:'spiral',   count:1, reward:6000,  desc:'Catch a Spiral',             icon:'🌀' },
+];
+
+function getTodayKey() { return Math.floor(Date.now() / 86400000); }
+function getDailyChallenge() { return DAILY_CHALLENGES[getTodayKey() % DAILY_CHALLENGES.length]; }
+
+function getDailyChallengeState() {
+  const key = getTodayKey();
+  const raw = localStorage.getItem('sq_daily');
+  try {
+    const d = JSON.parse(raw);
+    if (d && d.key === key) return d;
+  } catch(e) {}
+  return { key, progress: 0, claimed: false };
+}
+function saveDailyChallengeState(state) { localStorage.setItem('sq_daily', JSON.stringify(state)); }
+
+function updateDailyProgress(shape, effect, size) {
+  const ch = getDailyChallenge();
+  const state = getDailyChallengeState();
+  if (state.claimed) return;
+  let hit = false;
+  if (ch.type === 'roll') { state.progress = Math.min(ch.count, state.progress + 1); hit = true; }
+  else if (ch.type === 'effect' && effect && effect.id === ch.id) { state.progress = Math.min(ch.count, state.progress + 1); hit = true; }
+  else if (ch.type === 'shape' && shape && shape.id === ch.id) { state.progress = Math.min(ch.count, state.progress + 1); hit = true; }
+  else if (ch.type === 'size' && size && size.id === ch.id) { state.progress = Math.min(ch.count, state.progress + 1); hit = true; }
+  if (hit) { saveDailyChallengeState(state); renderDailyChallenge(); }
+}
+
+function claimDailyReward() {
+  const ch = getDailyChallenge();
+  const state = getDailyChallengeState();
+  if (state.claimed || state.progress < ch.count) return;
+  state.claimed = true;
+  saveDailyChallengeState(state);
+  coinCount += ch.reward;
+  localStorage.setItem('sq_coins', coinCount);
+  document.getElementById('coins').textContent = coinCount.toLocaleString();
+  if (currentUser) debounceSave();
+  renderDailyChallenge();
+  showRodToast(`${ch.icon} Daily complete! +${ch.reward.toLocaleString()} coins`);
+}
+
+function renderDailyChallenge() {
+  const el = document.getElementById('dailyCard');
+  if (!el) return;
+  const ch = getDailyChallenge();
+  const state = getDailyChallengeState();
+  const pct = Math.min(100, (state.progress / ch.count) * 100);
+  const done = state.progress >= ch.count;
+  const claimed = state.claimed;
+  el.innerHTML = `
+    <div class="daily-label">Daily Challenge</div>
+    <div class="daily-desc">${ch.icon} ${ch.desc}</div>
+    <div class="daily-bar-wrap">
+      <div class="daily-bar-fill" style="width:${pct}%"></div>
+    </div>
+    <div class="daily-footer">
+      <span class="daily-progress">${state.progress}/${ch.count}</span>
+      ${claimed ? '<span class="daily-claimed">✓ Claimed</span>'
+        : done ? `<button class="daily-claim-btn" onclick="claimDailyReward()">Claim +${ch.reward.toLocaleString()}</button>`
+               : `<span class="daily-reward">+${ch.reward.toLocaleString()} coins</span>`}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// COSMETICS
+// ═══════════════════════════════════════════════
+const COSMETICS = [
+  { id:'name_gold',    type:'name_color', label:'Gold Name',      emoji:'🥇', price:50000,   color:'#c8a020', desc:'Your leaderboard name glows in gold.' },
+  { id:'name_indigo',  type:'name_color', label:'Indigo Name',    emoji:'💜', price:100000,  color:'#8060d0', desc:'Deep indigo on the leaderboard.' },
+  { id:'name_crimson', type:'name_color', label:'Crimson Name',   emoji:'❤️', price:200000,  color:'#d03030', desc:'Your name burns crimson.' },
+  { id:'name_cyan',    type:'name_color', label:'Cyan Name',      emoji:'🩵', price:300000,  color:'#20b8d0', desc:'Cool cyan glow on your name.' },
+  { id:'name_rainbow', type:'name_color', label:'Rainbow Name',   emoji:'🌈', price:750000,  color:'rainbow', desc:'Your name cycles through every color.' },
+  { id:'border_shine', type:'border',     label:'Shine Border',   emoji:'✨', price:200000,  color:'#f0d040', desc:'A golden shimmer around your leaderboard card.' },
+  { id:'border_void',  type:'border',     label:'Void Border',    emoji:'🌑', price:500000,  color:'#6020c0', desc:'The void consumes your card borders.' },
+];
+
+let ownedCosmetics = new Set(JSON.parse(localStorage.getItem('sq_cosmetics') || '[]'));
+let activeNameColor = localStorage.getItem('sq_name_color') || '';
+let activeBorder    = localStorage.getItem('sq_border') || '';
+
+function buyCosmetic(id) {
+  const cosm = COSMETICS.find(c => c.id === id);
+  if (!cosm || ownedCosmetics.has(id)) return;
+  if (coinCount < cosm.price) { showRodToast('Not enough coins!'); return; }
+  coinCount -= cosm.price;
+  localStorage.setItem('sq_coins', coinCount);
+  document.getElementById('coins').textContent = coinCount.toLocaleString();
+  ownedCosmetics.add(id);
+  localStorage.setItem('sq_cosmetics', JSON.stringify([...ownedCosmetics]));
+  if (cosm.type === 'name_color') { activeNameColor = id; localStorage.setItem('sq_name_color', id); }
+  if (cosm.type === 'border')     { activeBorder = id;    localStorage.setItem('sq_border', id); }
+  if (currentUser) debounceSave();
+  renderShopPage();
+  showRodToast(`${cosm.emoji} ${cosm.label} equipped!`);
+}
+
+function equipCosmetic(id) {
+  const cosm = COSMETICS.find(c => c.id === id);
+  if (!cosm || !ownedCosmetics.has(id)) return;
+  if (cosm.type === 'name_color') { activeNameColor = activeNameColor === id ? '' : id; localStorage.setItem('sq_name_color', activeNameColor); }
+  if (cosm.type === 'border')     { activeBorder = activeBorder === id ? '' : id;       localStorage.setItem('sq_border', activeBorder); }
+  renderShopPage();
+}
+
+function getNameStyle() {
+  const cosm = COSMETICS.find(c => c.id === activeNameColor);
+  if (!cosm) return '';
+  if (cosm.color === 'rainbow') return 'background:linear-gradient(90deg,#ff4080,#ff9020,#f0e020,#40e060,#2080ff,#c020ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:600';
+  return `color:${cosm.color};font-weight:600`;
+}
+function getBorderStyle() {
+  const cosm = COSMETICS.find(c => c.id === activeBorder);
+  if (!cosm) return '';
+  return `box-shadow:0 0 0 2px ${cosm.color},0 2px 12px ${cosm.color}55;border-color:${cosm.color}`;
 }
 
 // ═══════════════════════════════════════════════
@@ -1580,6 +1940,9 @@ async function submitScore() {
     showcase_json: showcaseJson,
   };
   if (currentUser) playerRow.user_id = currentUser.id;
+  playerRow.prestige = playerPrestige || 0;
+  playerRow.name_color = activeNameColor || null;
+  playerRow.border = activeBorder || null;
   await sbUpsert('players', playerRow);
 
   if(playerSchool) {
@@ -1647,11 +2010,16 @@ async function renderGlobalTab() {
         : `<div class="lb-av">${initials(p.name)}</div>`;
       const hasShowcase = p.showcase_json && p.showcase_json.length > 2;
       const safeName = p.name.replace(/'/g,"\\'");
-      html += `<div class="lb-row${isMe?' me':''}">
+      const prestigeStars = p.prestige > 0 ? `<span class="lb-prestige">${'⭐'.repeat(Math.min(p.prestige,5))}</span>` : '';
+      const nameCosm = p.name_color ? COSMETICS.find(c=>c.id===p.name_color) : null;
+      const nameStyle = nameCosm ? (nameCosm.color==='rainbow'?'background:linear-gradient(90deg,#ff4080,#ff9020,#f0e020,#40e060,#2080ff,#c020ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:600':`color:${nameCosm.color};font-weight:600`) : '';
+      const borderCosm = p.border ? COSMETICS.find(c=>c.id===p.border) : null;
+      const borderStyle = borderCosm ? `box-shadow:0 0 0 2px ${borderCosm.color},0 2px 10px ${borderCosm.color}44;border-color:${borderCosm.color}` : '';
+      html += `<div class="lb-row${isMe?' me':''}" style="${borderStyle}">
         <div class="lb-pos ${posClass(i)}">${i+1}</div>
         ${avatarHtml}
         <div class="lb-info">
-          <div class="lb-name">${p.name}${isMe?' (you)':''}</div>
+          <div class="lb-name"><span style="${nameStyle}">${p.name}</span>${prestigeStars}${isMe?' <span style="color:var(--soft)">(you)</span>':''}</div>
           <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}  </div>
         </div>
         <div class="lb-score">
@@ -1844,6 +2212,52 @@ async function deletePlayer(name) {
 
 function _isAdmin() { return currentUser?.email==='evan.h.gerstein@gmail.com'||currentUser?.email==='egers002@mater.colegia.org'; }
 
+// ── FEED TAB ──
+function _timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+async function renderFeedTab() {
+  const body = document.getElementById('ranksBody');
+  body.innerHTML = '<div class="lb-empty">Loading feed…</div>';
+  const recent = await sbGet('players', 'order=ts.desc&limit=30&select=name,coins,level,rarest_svg,rarest_label,rarest_color,school,showcase_json,ts,prestige');
+  if (!recent.length) { body.innerHTML = '<div class="lb-empty">No activity yet.</div>'; return; }
+  let html = '<div class="lb-section-label">Recent Activity</div>';
+  recent.forEach((p, i) => {
+    if (!p.ts) return;
+    const ago = _timeAgo(p.ts);
+    const avatarHtml = p.rarest_svg
+      ? `<div class="lb-av" style="background:transparent;overflow:visible">${p.rarest_svg}</div>`
+      : `<div class="lb-av">${initials(p.name)}</div>`;
+    const hasShowcase = p.showcase_json && p.showcase_json.length > 2;
+    const prestigeStars = p.prestige > 0 ? `<span class="lb-prestige">${'⭐'.repeat(Math.min(p.prestige,5))}</span>` : '';
+    html += `<div class="lb-row">
+      ${avatarHtml}
+      <div class="lb-info">
+        <div class="lb-name">${p.name}${prestigeStars}</div>
+        <div class="lb-sub">${p.school||'No school'} · Lv ${p.level}${p.rarest_label?` · <span style="color:${p.rarest_color||'#999'}">${p.rarest_label}</span>`:''}</div>
+      </div>
+      <div class="lb-score" style="text-align:right">
+        ${hasShowcase?`<button class="sc-player-btn" onclick="event.stopPropagation();openPlayerShowcaseByIndex_feed(${i})">Showcase</button>`:''}
+        <span>${p.coins.toLocaleString()}</span> coins<br>
+        <span style="font-size:.52rem;color:var(--soft)">${ago}</span>
+      </div>
+    </div>`;
+  });
+  window._feedPlayers = recent;
+  body.innerHTML = html;
+}
+
+function openPlayerShowcaseByIndex_feed(i) {
+  const p = window._feedPlayers?.[i];
+  if (!p || !p.showcase_json) return;
+  try { openPlayerShowcase(p.name, JSON.parse(p.showcase_json)); } catch(e) {}
+}
+
 // ── ROD SHOP ──
 const ROD_TIER_NAMES = {1:'Common',2:'Uncommon',3:'Rare',4:'Epic',5:'Legendary',6:'Mythic'};
 
@@ -1884,6 +2298,33 @@ function renderShopPage() {
       <div class="rod-name" style="color:${rod.color}">${rod.secret && !canSee ? '???' : rod.label}</div>
     `;
     card.addEventListener('click', () => openRodDetail(rod.id));
+    grid.appendChild(card);
+  });
+
+  // ── Cosmetics section ──
+  const cosmSec = document.createElement('div');
+  cosmSec.className = 'shop-section-label';
+  cosmSec.style.gridColumn = '1/-1';
+  cosmSec.textContent = 'Cosmetics — leaderboard flair';
+  grid.appendChild(cosmSec);
+
+  COSMETICS.forEach(cosm => {
+    const owned = ownedCosmetics.has(cosm.id);
+    const isEquipped = (cosm.type === 'name_color' && activeNameColor === cosm.id) || (cosm.type === 'border' && activeBorder === cosm.id);
+    const card = document.createElement('div');
+    card.className = `rod-card${isEquipped ? ' active-rod' : ''}`;
+    if (isEquipped) card.style.borderColor = cosm.color === 'rainbow' ? '#ff80c0' : cosm.color;
+    card.innerHTML = `
+      ${isEquipped ? `<div class="rod-equipped-tag">Active</div>` : ''}
+      <div class="rod-emoji">${cosm.emoji}</div>
+      <div class="rod-name">${cosm.label}</div>
+      <div style="font-size:.52rem;color:var(--soft);text-align:center;line-height:1.4">${owned ? (isEquipped ? 'Equipped' : 'Owned') : cosm.price.toLocaleString() + ' coins'}</div>
+    `;
+    card.addEventListener('click', () => {
+      if (owned) { equipCosmetic(cosm.id); }
+      else if (coinCount >= cosm.price) { if (confirm(`Buy ${cosm.label} for ${cosm.price.toLocaleString()} coins?`)) buyCosmetic(cosm.id); }
+      else showRodToast('Not enough coins!');
+    });
     grid.appendChild(card);
   });
 }
@@ -2036,9 +2477,10 @@ function setName() {
 function switchRanksTab(tab) {
   currentRanksTab = tab;
   document.querySelectorAll('.ranks-tab').forEach((t,i)=>{
-    t.classList.toggle('on',(i===0&&tab==='global')||(i===1&&tab==='school'));
+    t.classList.toggle('on',(i===0&&tab==='global')||(i===1&&tab==='school')||(i===2&&tab==='feed'));
   });
   if(tab==='global') renderGlobalTab();
+  else if(tab==='feed') renderFeedTab();
   else renderSchoolTab();
 }
 
@@ -2183,6 +2625,28 @@ function renderCatalogue() {
   document.getElementById('catCount').textContent = `${totalUnique} unique · ${total} total`;
 }
 
+let _achVisible = false;
+function toggleAchievements() {
+  _achVisible = !_achVisible;
+  const panel = document.getElementById('achPanel');
+  const grid = document.getElementById('catGrid');
+  panel.style.display = _achVisible ? 'block' : 'none';
+  grid.style.display = _achVisible ? 'none' : '';
+  if (_achVisible) renderAchievements();
+}
+
+function renderAchievements() {
+  const g = document.getElementById('achGrid');
+  g.innerHTML = ACHIEVEMENTS.map(a => {
+    const unlocked = unlockedAchs.has(a.id);
+    return `<div class="ach-card${unlocked?'':' ach-locked'}">
+      <div class="ach-icon">${unlocked ? a.icon : '🔒'}</div>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div>
+    </div>`;
+  }).join('');
+}
+
 // ═══════════════════════════════════════════════
 // DETAIL MODAL
 // ═══════════════════════════════════════════════
@@ -2265,6 +2729,7 @@ function showPage(page) {
   if(page==='collect'){
     stage.style.opacity='1'; stage.style.pointerEvents='';
     cstat.style.opacity='1'; ccoins.style.opacity='1';
+    renderDailyChallenge(); renderPrestigeBtn();
   } else if(page==='catalogue'){
     renderCatalogue();
     cat.style.display='flex'; cat.style.pointerEvents='all';
@@ -2903,6 +3368,11 @@ async function saveUserData() {
         collection: colData,
         rod: playerRod||'twig',
         owned_rods: [...ownedRods],
+        prestige: playerPrestige || 0,
+        achievements: [...unlockedAchs],
+        cosmetics: [...ownedCosmetics],
+        name_color: activeNameColor || null,
+        border: activeBorder || null,
         ts: Date.now()
       })
     });
@@ -2962,6 +3432,31 @@ async function loadUserData() {
       playerSchool = data.school;
       localStorage.setItem('sq_school', playerSchool);
     }
+
+    // ── Prestige — take the higher value ──
+    if ((data.prestige || 0) > playerPrestige) {
+      playerPrestige = data.prestige;
+      localStorage.setItem('sq_prestige', playerPrestige);
+      localAhead = true; // push cloud prestige back if it was lower
+    } else if (playerPrestige > (data.prestige || 0)) {
+      localAhead = true;
+    }
+
+    // ── Achievements — union ──
+    if (Array.isArray(data.achievements)) {
+      let achChanged = false;
+      data.achievements.forEach(id => { if (!unlockedAchs.has(id)) { unlockedAchs.add(id); achChanged = true; } });
+      if (achChanged) { localStorage.setItem('sq_achievements', JSON.stringify([...unlockedAchs])); localAhead = true; }
+    }
+
+    // ── Cosmetics — union owned, restore active selections ──
+    if (Array.isArray(data.cosmetics)) {
+      let cosmChanged = false;
+      data.cosmetics.forEach(id => { if (!ownedCosmetics.has(id)) { ownedCosmetics.add(id); cosmChanged = true; } });
+      if (cosmChanged) { localStorage.setItem('sq_cosmetics', JSON.stringify([...ownedCosmetics])); localAhead = true; }
+    }
+    if (data.name_color && !activeNameColor) { activeNameColor = data.name_color; localStorage.setItem('sq_name_color', activeNameColor); }
+    if (data.border && !activeBorder)        { activeBorder = data.border;       localStorage.setItem('sq_border', activeBorder); }
 
     // ── Merge rods: union owned sets, prefer cloud's equipped rod if local is default ──
     if (data.owned_rods && Array.isArray(data.owned_rods)) {
@@ -3210,6 +3705,11 @@ async function doForceSync() {
         collection: localColObj,
         rod: localStorage.getItem('sq_rod') || playerRod || 'twig',
         owned_rods: JSON.parse(localStorage.getItem('sq_owned_rods') || '["twig"]'),
+        prestige: playerPrestige || 0,
+        achievements: [...unlockedAchs],
+        cosmetics: [...ownedCosmetics],
+        name_color: activeNameColor || null,
+        border: activeBorder || null,
         ts: Date.now()
       })
     });
@@ -3367,6 +3867,9 @@ updateAuthUI();
 // onAuthStateChange fires with INITIAL_SESSION on every page load — no need to call
 // getSession() separately (it can hang on the live site). Just run school moderation.
 _autoModerateSchools();
+renderDailyChallenge();
+renderPrestigeBtn();
+checkAchievements();
 renderShape(SHAPES.find(s=>s.id==='sphere'),EFFECTS.find(e=>e.id==='Glow'),null,true);
 </script>
 </body>
