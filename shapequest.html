@@ -2901,6 +2901,8 @@ async function saveUserData() {
         level: playerLevel,
         xp: playerXP,
         collection: colData,
+        rod: playerRod||'twig',
+        owned_rods: [...ownedRods],
         ts: Date.now()
       })
     });
@@ -2960,6 +2962,25 @@ async function loadUserData() {
       playerSchool = data.school;
       localStorage.setItem('sq_school', playerSchool);
     }
+
+    // ── Merge rods: union owned sets, prefer cloud's equipped rod if local is default ──
+    if (data.owned_rods && Array.isArray(data.owned_rods)) {
+      const merged = new Set([...ownedRods, ...data.owned_rods]);
+      if (merged.size > ownedRods.size) {
+        ownedRods = merged;
+        localStorage.setItem('sq_owned_rods', JSON.stringify([...ownedRods]));
+        localAhead = true; // push merged set back up
+      }
+    }
+    if (data.rod && data.rod !== 'twig' && playerRod === 'twig' && ownedRods.has(data.rod)) {
+      // Cloud has a non-default rod equipped and local is still default — restore it
+      playerRod = data.rod;
+      localStorage.setItem('sq_rod', playerRod);
+    } else if (playerRod !== 'twig' && playerRod !== (data.rod||'twig')) {
+      // Local has a different rod equipped than cloud — local wins, push up
+      localAhead = true;
+    }
+
     // ── Always merge collections — keep the best count/pts for every entry ──
     let collectionChanged = false;
     if (data.collection && typeof data.collection === 'object') {
@@ -3186,7 +3207,10 @@ async function doForceSync() {
       body: JSON.stringify({
         user_id: currentUser.id, player_name: localName, school: localSchool,
         coins: localCoins, level: localLevel, xp: localXP,
-        collection: localColObj, ts: Date.now()
+        collection: localColObj,
+        rod: localStorage.getItem('sq_rod') || playerRod || 'twig',
+        owned_rods: JSON.parse(localStorage.getItem('sq_owned_rods') || '["twig"]'),
+        ts: Date.now()
       })
     });
     if (!r.ok) {
