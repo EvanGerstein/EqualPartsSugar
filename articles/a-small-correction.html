@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>A small correction — EqualPartsSugar</title>
+        <style>
+            .damaged-passage { position: relative; max-width: 650px; margin: 24px 0; overflow: hidden; }
+            .damaged-passage p { margin: 14px 0; overflow-wrap: anywhere; }
+            .damaged-passage .noise { font-family: monospace; letter-spacing: 2px; }
+            .damaged-passage .smear { text-decoration: line-through; text-decoration-thickness: 5px; filter: blur(.65px); }
+            .damaged-passage::after {
+                content: ""; position: absolute; inset: -10px; pointer-events: none;
+                background: linear-gradient(112deg,
+                    transparent 0 24%, white 24% 25.3%, #222 25.4% 25.6%, transparent 25.7% 38%,
+                    white 38% 40.5%, #333 40.6% 40.8%, transparent 40.9% 51%,
+                    white 51% 53%, #222 53.1% 53.3%, transparent 53.4% 65%,
+                    white 65% 66.6%, #444 66.7% 66.9%, transparent 67%);
+            }
+        </style>
+    </head>
+    <body>
+        <a href="../index.html">EqualPartsSugar.Live!</a>
+        <hr>
+        <article>
+            <h1>A small correction</h1>
+            <p>There has always been a bear on this website.</p>
+            <p>If you remember a time before the bear, please keep reading.</p>
+            <div class="damaged-passage" role="img" aria-label="This passage has been torn through by deep claw marks. Almost all of the writing is corrupted and unreadable.">
+                <div aria-hidden="true">
+                    <p>We re<span class="smear">c̷͎͝e̸̮̕ḭ̴͘v̶̖̽ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span> <span class="noise">� ▒▒ / / ▓▓▓</span></p>
+                    <p class="noise">██ ░�░ ▓▓▓▓▓▓▓▓▓ ▒▒▒▒ � 0̸̬̏0̷̥̈́0̴̱͠ ▓▓▓▓</p>
+                    <p class="smear">t̷̤̔h̴̡͐e̶̗͝ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</p>
+                    <p class="noise">▓▓▓▓▓▓▓▓▓ ░░ � � ▒▒▒ / ▓▓▓▓▓▓▓▓</p>
+                    <p><i>s̷̰̏ä̴̘́<span class="smear">▓▓▓▓▓▓▓▓</span></i></p>
+                </div>
+            </div>
+            <hr>
+            <p>One detail still needs correcting.</p>
+            <p>In the oldest copy, Splinter is facing the other way.</p>
+            <p>We don't know what he was looking at.</p>
+        </article>
+    </body>
+</html>

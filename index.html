@@ -24,8 +24,8 @@
         </p>
         <section aria-labelledby="mascot-heading">
             <h3 id="mascot-heading">Meet the mascot</h3>
-            <img src="images/splinter.png" alt="Splinter, our sun bear mascot" width="140" height="225" style="max-width: 100%; height: auto;">
-            <p>This is <b>Splinter</b>, the EqualPartsSugar sun bear. Say hi!</p>
+            <button id="splinter-picture" type="button" aria-label="Say hi to Splinter" style="display: block; padding: 0; border: 0; background: none; cursor: pointer; max-width: 100%;"><img src="images/splinter.png" alt="Splinter, our sun bear mascot" width="140" height="225" style="display: block; max-width: 100%; height: auto;"></button>
+            <p id="splinter-message" aria-live="polite">This is <b>Splinter</b>, the EqualPartsSugar sun bear. Say hi!</p>
         </section>
         <h3>Articles</h3>
         <ul>
@@ -41,6 +41,25 @@
         </ul>
         <a href="mikeadeshina.html"><b>Play American Tower Defense!</b></a>
         <a href="shapequest.html"><b>Play ShapeQuest!</b></a>
+        <script>
+            const picture = document.getElementById('splinter-picture');
+            let splinterState = 'idle';
+            picture.addEventListener('click', function () {
+                if (splinterState === 'ready') {
+                    window.location.href = 'articles/a-small-correction.html';
+                    return;
+                }
+                if (splinterState !== 'idle') return;
+                splinterState = 'greeting';
+                const message = document.getElementById('splinter-message');
+                message.textContent = 'Splinter says hi back.';
+                window.setTimeout(function () {
+                    message.textContent = 'Splinter would like to show you something.';
+                    splinterState = 'ready';
+                    picture.setAttribute('aria-label', 'Let Splinter show you something');
+                }, 3000);
+            });
+        </script>
     </body>
 </html>
 
