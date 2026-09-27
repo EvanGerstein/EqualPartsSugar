@@ -43,17 +43,23 @@
         <a href="shapequest.html"><b>Play ShapeQuest!</b></a>
         <script>
             const picture = document.getElementById('splinter-picture');
+            let splinterState = 'idle';
             function updateSplinterDirection() {
                 try {
                     if (sessionStorage.getItem('splinter-visited-correction') === 'yes') {
                         picture.querySelector('img').style.transform = 'scaleX(-1)';
+                        splinterState = 'finished';
+                        picture.disabled = true;
+                        picture.style.cursor = 'default';
+                        picture.setAttribute('aria-label', 'Splinter, our sun bear mascot');
+                        document.getElementById('splinter-message').textContent = 'This is Splinter, the EqualPartsSugar sun bear.';
                     }
                 } catch (error) { /* Keep the greeting usable if storage is unavailable. */ }
             }
             updateSplinterDirection();
             window.addEventListener('pageshow', updateSplinterDirection);
-            let splinterState = 'idle';
             picture.addEventListener('click', function () {
+                if (splinterState === 'finished') return;
                 if (splinterState === 'ready') {
                     window.location.href = 'articles/a-small-correction.html';
                     return;
@@ -63,6 +69,7 @@
                 const message = document.getElementById('splinter-message');
                 message.textContent = 'Splinter says hi back.';
                 window.setTimeout(function () {
+                    if (splinterState === 'finished') return;
                     message.textContent = 'Splinter would like to show you something.';
                     splinterState = 'ready';
                     picture.setAttribute('aria-label', 'Let Splinter show you something');
