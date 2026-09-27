@@ -43,6 +43,15 @@
         <a href="shapequest.html"><b>Play ShapeQuest!</b></a>
         <script>
             const picture = document.getElementById('splinter-picture');
+            function updateSplinterDirection() {
+                try {
+                    if (sessionStorage.getItem('splinter-visited-correction') === 'yes') {
+                        picture.querySelector('img').style.transform = 'scaleX(-1)';
+                    }
+                } catch (error) { /* Keep the greeting usable if storage is unavailable. */ }
+            }
+            updateSplinterDirection();
+            window.addEventListener('pageshow', updateSplinterDirection);
             let splinterState = 'idle';
             picture.addEventListener('click', function () {
                 if (splinterState === 'ready') {

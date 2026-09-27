@@ -40,5 +40,10 @@
             <p>In the oldest copy, Splinter is facing the other way.</p>
             <p>We don't know what he was looking at.</p>
         </article>
+        <script>
+            try {
+                sessionStorage.setItem('splinter-visited-correction', 'yes');
+            } catch (error) { /* The story remains readable without browser storage. */ }
+        </script>
     </body>
 </html>
