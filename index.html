@@ -13,10 +13,19 @@
             @keyframes bear-lunge { from { transform: translate(-50%, -17%) scale(.7); } to { transform: translate(-50%, -17%) scale(1); } }
             @keyframes bear-shake { 0%, 100% { translate: 0 0; } 25% { translate: -18px 10px; } 50% { translate: 16px -12px; } 75% { translate: -10px -6px; } }
             @media (prefers-reduced-motion: reduce) { #splinter-scare img { animation: none; } }
-        </style>
+        #archive-sun{display:block;width:44px;height:44px;padding:10px;background:none;border:0;color:#9b885e}#archive-sun svg{width:24px;height:24px}#archive-sun.warm{color:#b77618;filter:drop-shadow(0 0 8px #d99d44)}
+#archive-stamp{touch-action:none;user-select:none;width:64px;height:44px;border:0;background:none;cursor:grab;color:#8e7d61;font:9px Georgia}.wax{display:block;padding:8px 3px;background:#c89d5338;border-radius:43% 55% 39% 48%;box-shadow:inset 0 0 4px #92714055;transform:rotate(-9deg)}
+#archive-stamp.heating .wax{animation:wax-melt 1.4s linear forwards}@keyframes wax-melt{to{transform:translateY(12px) scale(.8,1.9);filter:blur(2px);opacity:.1}}
+#honey-stain{position:relative;max-width:290px;padding:28px 20px 35px;color:#684718;font:12px Georgia;background:radial-gradient(ellipse at 40% 40%,#b77c2870,#d0a44c35 60%,transparent 72%)}#honey-stain:after{content:'';position:absolute;left:42px;top:70%;height:35px;width:9px;background:#b8813555;border-radius:0 0 70% 70%;pointer-events:none}
+@media(prefers-reduced-motion:reduce){#archive-stamp.heating .wax{animation:none;opacity:.4}}
+</style>
         <link rel="icon" type="image/x-icon" href="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png">
     </head>
     <body>
+        <button id="archive-sun" type="button" aria-label="Sun"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="16" cy="16" r="6"/><path d="M16 1v6m0 18v6M1 16h6m18 0h6M5 5l4 4m14 14 4 4M5 27l4-4M23 9l4-4"/></svg></button>
+        <div id="honey-stain" hidden>
+            MCMXLVII / MCMXLIX<br><i>Two years. Two editions. Oldest first.</i><br><br><a href="articles/records/newspaper-drawer.html" style="color:inherit">Open the drawer</a>
+        </div>
         <span>
             <img src="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png" width="20px" length="20px"></img><a style="font-size: 30px; font-weight: bold;">EqualPartsSugar.Live!</a> • <a href="subjects/history.html">History</a> • <a href="subjects/founders.html">Founders</a>
         </span>
@@ -35,6 +44,7 @@
             <h3 id="mascot-heading">Meet the mascot</h3>
             <button id="splinter-picture" type="button" aria-label="Say hi to Splinter" style="display: block; padding: 0; border: 0; background: none; cursor: pointer; max-width: 100%;"><img src="images/splinter.png" alt="Splinter, our sun bear mascot" width="140" height="225" style="display: block; max-width: 100%; height: auto;"></button>
             <p id="splinter-message" aria-live="polite">This is <b>Splinter</b>, the EqualPartsSugar sun bear. Say hi!</p>
+            <button id="archive-stamp" type="button" aria-label="Wax seal: hold to light"><span class="wax">IV · sol.</span></button>
             <button id="keep-looking" type="button" hidden>Why Do You Keep Looking</button>
             <p id="supper-invitation" hidden><a href="articles/supper-club.html">There's a place for you at the table.</a></p>
         </section>
@@ -169,6 +179,7 @@
                 }, 3000);
             });
         </script>
+        <script src="archive-stamp.js"></script>
     </body>
 </html>
 
