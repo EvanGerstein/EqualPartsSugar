@@ -85,21 +85,30 @@
                 splinterState = 'scare';
                 this.disabled = true;
                 document.getElementById('splinter-scare').hidden = false;
-                // Brief, volume-limited sting; no flashing or fullscreen request.
+                // Synthetic scream: wavering vocal harmonics and breath noise, peak-limited.
                 try {
                     const audio = new (window.AudioContext || window.webkitAudioContext)();
-                    const oscillator = audio.createOscillator();
-                    const gain = audio.createGain();
-                    oscillator.type = 'sawtooth';
-                    oscillator.frequency.setValueAtTime(95, audio.currentTime);
-                    oscillator.frequency.exponentialRampToValueAtTime(28, audio.currentTime + .65);
-                    gain.gain.setValueAtTime(0, audio.currentTime);
-                    gain.gain.linearRampToValueAtTime(.25, audio.currentTime + .008);
-                    gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .7);
-                    oscillator.connect(gain); gain.connect(audio.destination);
+                    const duration = .9;
+                    const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+                    const samples = buffer.getChannelData(0);
+                    let phase = 0, breath = 0, peak = 0;
+                    for (let i = 0; i < samples.length; i++) {
+                        const t = i / audio.sampleRate;
+                        const pitch = 620 + 220 * Math.sin(Math.PI * t / duration) + 35 * Math.sin(2 * Math.PI * 32 * t);
+                        phase += 2 * Math.PI * pitch / audio.sampleRate;
+                        breath = .65 * breath + .35 * (Math.random() * 2 - 1);
+                        const voice = Math.sin(phase) + .65 * Math.sin(2 * phase) + .4 * Math.sin(3 * phase) + .2 * Math.sin(5 * phase);
+                        const envelope = Math.min(1, t / .012) * Math.min(1, (duration - t) / .16);
+                        samples[i] = Math.tanh(voice * 1.5 + breath * 1.8) * envelope * (.85 + .15 * Math.sin(2 * Math.PI * 47 * t));
+                        peak = Math.max(peak, Math.abs(samples[i]));
+                    }
+                    for (let i = 0; i < samples.length; i++) samples[i] *= .8 / Math.max(peak, .001);
+                    const source = audio.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audio.destination);
                     audio.resume().catch(() => {});
-                    oscillator.start(); oscillator.stop(audio.currentTime + .75);
-                    oscillator.onended = () => { audio.close().catch(() => {}); };
+                    source.start();
+                    source.onended = () => { audio.close().catch(() => {}); };
                 } catch (error) { /* The visual sequence works without audio. */ }
                 window.setTimeout(function () {
                     document.title = '404 Not Found';
