@@ -5,6 +5,15 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>EqualPartsSugar</title>
+        <style>
+            [hidden] { display: none !important; }
+            #keep-looking { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+            #splinter-scare { position: fixed; inset: 0; z-index: 9999; overflow: hidden; background: #080808; }
+            #splinter-scare img { position: absolute; width: max(150vw, 150vh); max-width: none; height: auto; left: 50%; top: 50%; transform: translate(-50%, -17%); filter: grayscale(1) contrast(2.8) brightness(.85); animation: bear-lunge 160ms ease-out both, bear-shake 90ms 160ms 8; }
+            @keyframes bear-lunge { from { transform: translate(-50%, -17%) scale(.7); } to { transform: translate(-50%, -17%) scale(1); } }
+            @keyframes bear-shake { 0%, 100% { translate: 0 0; } 25% { translate: -18px 10px; } 50% { translate: 16px -12px; } 75% { translate: -10px -6px; } }
+            @media (prefers-reduced-motion: reduce) { #splinter-scare img { animation: none; } }
+        </style>
         <link rel="icon" type="image/x-icon" href="https://uploads.scratch.mit.edu/get_image/user/144164107_90x90.png">
     </head>
     <body>
@@ -26,6 +35,8 @@
             <h3 id="mascot-heading">Meet the mascot</h3>
             <button id="splinter-picture" type="button" aria-label="Say hi to Splinter" style="display: block; padding: 0; border: 0; background: none; cursor: pointer; max-width: 100%;"><img src="images/splinter.png" alt="Splinter, our sun bear mascot" width="140" height="225" style="display: block; max-width: 100%; height: auto;"></button>
             <p id="splinter-message" aria-live="polite">This is <b>Splinter</b>, the EqualPartsSugar sun bear. Say hi!</p>
+            <button id="keep-looking" type="button" hidden>Why Do You Keep Looking</button>
+            <p id="supper-invitation" hidden><a href="articles/supper-club.html">There's a place for you at the table.</a></p>
         </section>
         <h3>Articles</h3>
         <ul>
@@ -41,11 +52,22 @@
         </ul>
         <a href="mikeadeshina.html"><b>Play American Tower Defense!</b></a>
         <a href="shapequest.html"><b>Play ShapeQuest!</b></a>
+        <div id="splinter-scare" role="img" aria-label="Splinter suddenly appears close to your face" hidden><img src="images/splinter.png" alt=""></div>
         <script>
             const picture = document.getElementById('splinter-picture');
             let splinterState = 'idle';
             function updateSplinterDirection() {
                 try {
+                    if (sessionStorage.getItem('splinter-visited-club') === 'yes') {
+                        splinterState = 'gone';
+                        picture.hidden = true;
+                        picture.disabled = true;
+                        document.getElementById('mascot-heading').hidden = true;
+                        document.getElementById('splinter-message').hidden = true;
+                        document.getElementById('supper-invitation').hidden = true;
+                        document.getElementById('keep-looking').hidden = false;
+                        return;
+                    }
                     if (sessionStorage.getItem('splinter-visited-correction') === 'yes') {
                         picture.querySelector('img').style.transform = 'scaleX(-1)';
                         splinterState = 'finished';
@@ -58,6 +80,42 @@
             }
             updateSplinterDirection();
             window.addEventListener('pageshow', updateSplinterDirection);
+            document.getElementById('keep-looking').addEventListener('click', function () {
+                if (splinterState !== 'gone') return;
+                splinterState = 'scare';
+                this.disabled = true;
+                document.getElementById('splinter-scare').hidden = false;
+                // Brief, volume-limited sting; no flashing or fullscreen request.
+                try {
+                    const audio = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audio.createOscillator();
+                    const gain = audio.createGain();
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(95, audio.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(28, audio.currentTime + .65);
+                    gain.gain.setValueAtTime(0, audio.currentTime);
+                    gain.gain.linearRampToValueAtTime(.25, audio.currentTime + .008);
+                    gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .7);
+                    oscillator.connect(gain); gain.connect(audio.destination);
+                    audio.resume().catch(() => {});
+                    oscillator.start(); oscillator.stop(audio.currentTime + .75);
+                    oscillator.onended = () => { audio.close().catch(() => {}); };
+                } catch (error) { /* The visual sequence works without audio. */ }
+                window.setTimeout(function () {
+                    document.title = '404 Not Found';
+                    document.body.innerHTML = '<h1>404 Not Found</h1><hr><p>The requested page could not be found.</p>';
+                }, 950);
+            });
+            let leftPresses = 0;
+            window.addEventListener('keydown', function (event) {
+                if (event.key !== 'ArrowLeft' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                if (event.target.closest && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+                if (splinterState !== 'finished') return;
+                event.preventDefault();
+                leftPresses += 1;
+                document.getElementById('splinter-message').textContent = 'Dont Go Looking';
+                if (leftPresses >= 2) document.getElementById('supper-invitation').hidden = false;
+            });
             picture.addEventListener('click', function () {
                 if (splinterState === 'finished') return;
                 if (splinterState === 'ready') {
@@ -69,7 +127,7 @@
                 const message = document.getElementById('splinter-message');
                 message.textContent = 'Splinter says hi back.';
                 window.setTimeout(function () {
-                    if (splinterState === 'finished') return;
+                    if (splinterState !== 'greeting') return;
                     message.textContent = 'Splinter would like to show you something.';
                     splinterState = 'ready';
                     picture.setAttribute('aria-label', 'Let Splinter show you something');

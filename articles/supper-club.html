@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Supper Club :: Welcome, guest</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px 12px; color: #302715; background: #353d30; background-image: repeating-linear-gradient(45deg, transparent 0 3px, #ffffff06 3px 4px); font: 14px Georgia, 'Times New Roman', serif; }
+        .site { max-width: 760px; margin: auto; border: 5px ridge #aeaa87; background: #e8e1bf; box-shadow: 8px 8px #171d16; }
+        header { padding: 20px 12px 12px; text-align: center; color: #e9d898; background: #374332; border-bottom: 4px double #b7a46e; }
+        header small { letter-spacing: 4px; font: 10px Verdana, sans-serif; }
+        h1 { margin: 12px 0 4px; font-size: clamp(30px, 7vw, 46px); font-weight: normal; text-shadow: 2px 2px #111; }
+        header p { margin: 8px; font-style: italic; }
+        .ticker { background: #111b12; color: #cab777; padding: 7px; font: 11px monospace; text-align: center; border-bottom: 2px groove #c5b887; }
+        .layout { display: grid; grid-template-columns: 155px minmax(0, 1fr); }
+        aside { padding: 15px 10px; background: #cec9a7; border-right: 2px groove #b3aa87; font: 11px Verdana, sans-serif; }
+        aside a, aside .dead { display: block; padding: 8px 3px; border-bottom: 1px dotted #938c6b; }
+        a { color: #363b70; } a:visited { color: #735568; }
+        .dead { color: #78735f; text-decoration: line-through; }
+        .badge { margin: 24px 0 12px; padding: 8px 3px; border: 2px inset #aaa; text-align: center; font: 10px monospace; background: #eee8ca; }
+        main { padding: 20px 24px; min-width: 0; }
+        h2 { margin-top: 0; font-size: 23px; font-weight: normal; border-bottom: 1px solid #948964; padding-bottom: 8px; }
+        p, li { line-height: 1.6; }
+        .notice { border: 3px double #91815c; padding: 12px; background: #f3ecd1; text-align: center; }
+        .notice strong { font: bold 11px Verdana, sans-serif; letter-spacing: 2px; }
+        .rot { font: 11px monospace; color: #766e53; overflow-wrap: anywhere; }
+        .damaged { position: relative; padding: 12px 8px; background: #d2c9a4; overflow: hidden; }
+        .damaged::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(174deg, transparent 30%, #e8e1bf 31% 35%, transparent 36% 57%, #252c23 58% 60%, transparent 61%); }
+        .missing { display: inline-block; border: 1px inset #aaa; padding: 8px; color: #76705d; font: 11px monospace; }
+        footer { padding: 14px; border-top: 3px double #958963; text-align: center; font: 10px Verdana, sans-serif; color: #6b644c; }
+        .counter { display: inline-block; background: #141d15; color: #a6ba85; padding: 4px 8px; font: 14px monospace; letter-spacing: 4px; border: 2px inset #aaa; }
+        button { font: 11px Verdana, sans-serif; padding: 5px 8px; cursor: pointer; }
+        #music-status { font-size: 10px; }
+        @media (max-width: 520px) { .layout { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 2px groove #b3aa87; } aside a, aside .dead { display: inline-block; margin-right: 8px; } .badge { margin: 12px 0; } main { padding: 18px 14px; } }
+        /* 2004 portal: compact Arial, square modules, glossy tabs and banner ads. */
+        [hidden] { display: none !important; }
+        body { padding: 0 8px 24px; background: #165281; color: #111; font: 11px Arial, Helvetica, sans-serif; }
+        .site { max-width: 800px; border: 0; background: white; box-shadow: none; }
+        .utility { background: #d7e8f8; border: 1px solid #7c9bb9; text-align: right; padding: 3px 8px; color: #003f80; font-size: 10px; }
+        header { background: #165281; border: 0; display: flex; align-items: center; gap: 24px; padding: 16px 8px 12px; text-align: left; color: white; }
+        h1 { margin: 0; font: italic bold 32px Arial, sans-serif; letter-spacing: -2px; text-shadow: 1px 2px #163751; white-space: nowrap; }
+        h1 span { color: #9fe529; }
+        header p { margin: 4px 0 0; font: 10px Arial, sans-serif; letter-spacing: 0; }
+        .header-right { flex: 1; text-align: center; }
+        .tabs { display: flex; justify-content: center; gap: 3px; margin-bottom: 8px; }
+        .tabs a { padding: 6px 10px; color: white; text-decoration: none; font-size: 13px; font-weight: bold; border: 1px solid #b7e9ff; background: linear-gradient(#62b9ec, #0067a4); }
+        .tabs a:first-child { background: linear-gradient(#a5e749, #4c9b08); }
+        .tabs a:nth-child(2) { background: linear-gradient(#ffb956, #dc7004); }
+        .searchline { font-weight: bold; }
+        .searchline input { width: 145px; border: 2px inset #ddd; height: 19px; font: 11px Arial; }
+        button { border: 2px outset #ddd; border-radius: 0; background: #e7e7e7; color: #111; padding: 2px 6px; font: 11px Arial; }
+        .ticker { padding: 4px; background: #eef5fb; color: #12467d; font: 10px Arial; border: 1px solid #8badce; text-align: left; }
+        .layout { grid-template-columns: 140px minmax(0, 1fr) 180px; gap: 8px; padding: 8px; }
+        aside { padding: 0; background: white; border: 0; font: 11px Arial; }
+        aside b { display: block; margin: 4px 0; color: #4c4c4c; }
+        aside a, aside .dead { padding: 2px 0; border: 0; }
+        a { color: #003c95; } a:visited { color: #563d82; }
+        .dead { color: #68778b; }
+        .nav-group { border-bottom: 1px solid #b4d0ee; margin-bottom: 9px; padding-bottom: 7px; }
+        .badge { margin: 10px 0; background: #e8f3fd; border: 1px solid #86acd1; text-align: left; padding: 6px; }
+        main { padding: 0; }
+        h2 { padding: 4px 6px; margin: 0; border: 0; background: #175886; color: white; font: bold 12px Arial; }
+        p, li { line-height: 1.35; }
+        .module { border: 1px solid #83a9d0; margin-bottom: 8px; }
+        .module-body { padding: 8px; }
+        .news-item + .news-item { border-top: 1px dotted #9bb0c5; margin-top: 10px; padding-top: 8px; }
+        .news-date { color: #687b8f; font-size: 10px; }
+        .news-item h3 { margin: 3px 0; color: #003c95; font-size: 12px; }
+        .news-item p { margin: 6px 0; }
+        .faded-copy { color: #707b85; letter-spacing: .15px; background: repeating-linear-gradient(0deg, transparent 0 4px, #cbd5df40 4px 5px); }
+        .struck { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: #303a45; }
+        .redacted { background: #303a45; color: #303a45; user-select: none; }
+        .hero { position: relative; min-height: 174px; overflow: hidden; padding: 14px 112px 12px 12px; background: linear-gradient(125deg, #d7f3ff, #65b9ee 70%, #1261a6); border: 1px solid #507fa7; }
+        .hero h2 { padding: 0; background: none; color: #084477; font: bold 25px Arial; letter-spacing: -1px; line-height: .98; }
+        .hero img { position: absolute; height: 177px; width: auto; right: 0; bottom: -20px; filter: contrast(1.2); }
+        .hero .sticker { display: inline-block; padding: 3px 6px; background: #fbed35; color: #204a7c; border: 1px solid #ddad13; font-weight: bold; transform: rotate(-4deg); }
+        .hero-bottom { background: #075184; color: white; padding: 4px 6px; text-align: right; font-weight: bold; }
+        .notice { margin: 8px 0; padding: 7px; background: #e6f2fd; border: 1px solid #8ab2d9; text-align: left; }
+        .notice strong { font: bold 11px Arial; letter-spacing: 0; color: #003d91; }
+        .notice p { margin: 4px 0 0; }
+        .rot { font: 10px 'Courier New', monospace; color: #697780; }
+        .damaged { background: #edf1f4; padding: 8px; }
+        .damaged::after { background: linear-gradient(177deg, transparent 31%, white 32% 36%, transparent 37% 65%, #174a75 66% 68%, transparent 69%); }
+        .missing { padding: 5px; font-size: 10px; color: #777; background: #f5f5f5; }
+        .ad-label { text-align: right; color: #666; font: 9px Arial; margin: 3px 0; }
+        .ad { text-align: center; border: 3px ridge #b7d6f1; padding: 10px 6px; background: linear-gradient(#0485c5, #69d9fa, #146dbb); color: white; text-shadow: 1px 2px #164c7d; }
+        .ad strong { display: block; font: 900 23px Impact, 'Arial Narrow', sans-serif; line-height: 1.1; }
+        .ad em { display: block; color: #fff635; font: normal 30px Impact, sans-serif; margin: 14px 0; }
+        .ad a { display: block; background: #fff13b; color: #064881; border: 2px outset #f8ed88; padding: 4px; font-weight: bold; text-shadow: none; }
+        .profile { display: flex; gap: 7px; padding: 8px; }
+        .avatar { width: 48px; height: 58px; object-fit: contain; background: #dce9f2; border: 1px solid #91a5b5; }
+        .profile p { margin: 0; font-size: 10px; }
+        .counter { font: 11px monospace; padding: 2px 4px; letter-spacing: 2px; background: black; color: #a5ff9c; }
+        footer { border-top: 1px solid #89acd0; padding: 10px; color: #666; font: 10px Arial; }
+        .entry { max-width: 460px; margin: 90px auto; border: 2px outset #c0d4e4; background: #fff; color: #111; text-align: center; padding: 0 0 20px; }
+        .entry h2 { margin-bottom: 22px; text-align: left; }
+        .entry-logo { font: italic bold 32px Arial; color: #145283; letter-spacing: -2px; }
+        #enter { margin: 12px 0; padding: 8px 28px; font-weight: bold; background: #e4edf6; }
+        @media (max-width: 650px) { header { display: block; } .header-right { margin-top: 12px; } .layout { grid-template-columns: 112px minmax(0, 1fr); } .right-rail { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } aside a, aside .dead { display: block; margin: 0; } .hero { padding-right: 75px; } .hero img { right: -30px; } main { padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="entry" id="entry">
+        <h2>The Supper Club :: Visitor Access</h2>
+        <div class="entry-logo">supperclub<span style="color:#76b82d">!</span></div>
+        <p>Good food. Good friends. Your place on the Web.</p>
+        <button id="enter" type="button">Click to visit &raquo;</button>
+        <div style="font-size:10px;color:#555">Sound starts when you enter. Speakers recommended.</div>
+    </div>
+    <div class="site" id="club" hidden>
+        <div class="utility">Your place on the Web &nbsp; | &nbsp; Classic Blue &nbsp; | &nbsp; Guest access</div>
+        <header><div><h1>supperclub<span>!</span></h1><p>GOOD FOOD. GOOD FRIENDS. ALWAYS.</p></div><div class="header-right"><nav class="tabs"><a href="#welcome">Home</a><a href="#rules">Club Rules</a><a href="#members">Members</a></nav><form id="search" class="searchline"><label for="query">Search the Club: </label><input id="query" type="search"><button type="submit">GO</button></form></div></header>
+        <div class="ticker">Wednesday, April 19, 2006 &nbsp; &bull; &nbsp; Welcome back, Guest! &nbsp; &bull; &nbsp; <span id="search-result" role="status">You have (1) outstanding invitation.</span></div>
+        <div class="layout">
+            <aside aria-label="Club directory">
+                <div class="nav-group"><b>Club &amp; Community</b><a href="#welcome">Today's Welcome</a><a href="#rules">Table Manners</a><a href="#members">Your Extended Network</a><span class="dead">Member Photos</span><span class="dead">Guestbook (full)</span></div>
+                <div class="nav-group"><b>Food &amp; Living</b><a href="cookies.html">Cookies &amp; Recipes</a><a href="#invitation">Reserve Your Place</a><span class="dead">Directions</span><span class="dead">Past Gatherings</span></div>
+                <div class="badge">&#9746; club_seal.gif<br><span class="rot">[image data lost]</span></div>
+                <b>Club Radio</b>
+                <button id="music" type="button" aria-pressed="false">Play lobby music</button>
+                <p id="music-status" role="status">Click to start the lobby music.</p>
+                <p class="rot">&lt;/td&gt;<br>&lt;!-- keep this seat --&gt;</p>
+            </aside>
+            <main id="welcome">
+                <div class="hero"><h2>Good company.<br>For a lifetime.</h2><p>Pull up a chair!<br>We've saved your usual place.</p><span class="sticker">MEET YOUR HOST!</span><img src="../images/splinter.png" alt="Splinter, your host"></div>
+                <div class="hero-bottom">EVERYONE IS WELCOME &raquo;</div>
+                <div class="notice" id="invitation"><strong>YOUR INVITATION IS STILL VALID</strong><p>No reservation necessary. We already have your name.</p></div>
+                <p style="text-align:center"><span class="missing" role="img" aria-label="Missing photograph: our last supper">&#9746; our_last_supper.jpg &nbsp; [18.4 KB]</span></p>
+                <section class="module" aria-labelledby="latest-news"><h2 id="latest-news">LATEST NEWS &gt; Club updates</h2><div class="module-body">
+                    <article class="news-item">
+                        <div class="news-date">09/30/2003 &nbsp; | &nbsp; Notice from the committee</div>
+                        <h3>Club closed until further notice</h3>
+                        <div class="faded-copy"><p>Following the attack at our September gathering, all supp&#xfffd;r meetings have been suspended. The doors were sealed on September 29, 2003.</p>
+                        <p>The attack was carried out by <span class="struck">an unidentified intruder</span> <span class="redacted" aria-label="name redacted">████████</span>. Our host left his usual place at the table at <span class="redacted" aria-label="time redacted">████████</span>. The marks on the inside of the doors have not been repaired.</p>
+                        <p><span class="struck">All members left the building safely.</span><br>The attendance sheet is no longer considered reliable.</p></div>
+                        <p class="rot">Reopening date: <span class="struck">October 2003</span> [WITHDRAWN]</p>
+                    </article>
+                    <article class="news-item">
+                        <div class="news-date">09/28/2003 &nbsp; | &nbsp; Bulletin partially recovered</div>
+                        <h3>Re: our host's behavior during dinner</h3>
+                        <p class="faded-copy"><span class="redacted" aria-label="name redacted">████████</span> was <span class="struck">never left unattended</span>. If he turns to look at you, remain seated. Do not follow him out of the dining room. <span class="struck">There is no cause for concern.</span></p>
+                        <p class="rot">Posted by: <span class="redacted" aria-label="author redacted">████████</span><br>Replies disabled &bull; 1 attachment unrecoverable</p>
+                    </article>
+                </div></section>
+                <div class="module"><h2 id="rules">CLUB GUIDE &gt; A few table manners</h2>
+                <ol>
+                    <li>Please leave one portion untouched.</li>
+                    <li>If someone arrives before you, do not ask how long they have been waiting.</li>
+                    <li>There are no empty chairs. Some are simply difficult to see.</li>
+                    <li>When our guest turns away, let him.</li>
+                </ol>
+                </div>
+                <div class="damaged" role="img" aria-label="A damaged club announcement. The text is unreadable."><div aria-hidden="true" class="rot">NEWS FROM THE COMMITTEE — 04/0&#xfffd;/2002<br><br>Dear mem&#xfffd;ers, the arrangement has n&#9608;&#9608; changed.<br>We have accounted for ev&#9618;&#9618;&#9618;one.<br>&lt;font color="#000000"&gt;PLEASE DO N&#9608;&#9608;&#9608;<br>attendance.dat : unexpected end of record</div></div>
+                <p><i>Equal portions. Equal places. No one leaves hungry.</i></p>
+                <p class="rot">Last updated: September 31, 2003<br>Webmaster: [address removed]</p>
+            </main>
+            <aside class="right-rail" aria-label="Community notices">
+                <div><div class="ad-label">Advertisement</div><div class="ad"><strong>THERE'S A<br>PLACE FOR<br>YOU AT THE<br>TABLE.</strong><em>JOIN<br>TODAY!</em><a href="#invitation">YOU'RE EXPECTED &raquo;</a></div><p class="rot">banner_exchange.asp?member=&#xfffd;</p></div>
+                <div><div class="module" id="members"><h2>MY EXTENDED NETWORK</h2><div class="profile"><img class="avatar" src="../images/splinter.png" alt="Splinter"><p><b>Splinter</b><br>Member since: 1998<br><br><span style="color:#27820d">&#9679; Online now!</span></p></div><div class="module-body">Splinter is in your extended network.<hr>You have <b>1</b> friend.<br>You have always had <b>1</b> friend.</div></div><div class="module"><h2>NEXT GET-TOGETHER</h2><div class="module-body"><b>Same time. Same place.</b><p>Please do not arrive early.</p><span class="rot">calendar unavailable<br>&lt;/table&gt;&lt;/td&gt;</span></div></div></div>
+            </aside>
+        </div>
+        <footer>You are visitor number <span class="counter">000001</span><p>Best viewed at 800 &times; 600 &bull; Please enable sound</p><a href="../index.html">&laquo; Back where you came from</a></footer>
+    </div>
+    <script>
+        // Original, softly synthesized lounge loop; no external audio or tracking.
+        const musicButton = document.getElementById('music');
+        const musicStatus = document.getElementById('music-status');
+        let audio, master, loop, playing = false;
+        document.getElementById('enter').addEventListener('click', () => {
+            try { sessionStorage.setItem('splinter-visited-club', 'yes'); } catch (error) { /* Allow entry without storage. */ }
+            document.getElementById('entry').hidden = true;
+            document.getElementById('club').hidden = false;
+            // Keep the reveal and audio start in the same user gesture/document.
+            musicButton.click();
+        });
+        document.getElementById('search').addEventListener('submit', event => {
+            event.preventDefault();
+            document.getElementById('search-result').textContent = 'Search unavailable. Member index could not be recovered.';
+        });
+        function tone(note, start, duration, volume, type) {
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+            oscillator.type = type;
+            oscillator.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(volume, start + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+            oscillator.connect(gain); gain.connect(master);
+            oscillator.start(start); oscillator.stop(start + duration + 0.05);
+            oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+        }
+        function phrase() {
+            const start = audio.currentTime + 0.1;
+            const chords = [[48,60,64,67,71], [45,60,64,67,69], [50,60,65,69,72], [43,59,62,65,69]];
+            const melody = [[76,74,71,67], [72,71,69,67], [69,72,77,76], [74,71,69,67]];
+            chords.forEach((chord, bar) => {
+                const time = start + bar * 3.2;
+                tone(chord[0], time, 1.5, 0.22, 'sine');
+                tone(chord[0] + 7, time + 1.6, 1.3, 0.15, 'sine');
+                chord.slice(1).forEach(note => { tone(note, time + 0.4, 1.1, 0.045, 'triangle'); tone(note, time + 2, 1, 0.035, 'triangle'); });
+                melody[bar].forEach((note, beat) => tone(note, time + beat * 0.8, 0.65, 0.085, 'sine'));
+            });
+        }
+        musicButton.addEventListener('click', async () => {
+            musicButton.disabled = true;
+            try {
+                if (playing) {
+                    clearInterval(loop); await audio.close(); audio = null; playing = false;
+                } else {
+                    if (audio) await audio.close();
+                    audio = new (window.AudioContext || window.webkitAudioContext)();
+                    master = audio.createGain(); master.gain.value = 0.22; master.connect(audio.destination);
+                    await audio.resume();
+                    phrase();
+                    loop = setInterval(phrase, 12800); playing = true;
+                }
+                musicButton.textContent = playing ? 'Pause lobby music' : 'Play lobby music';
+                musicButton.setAttribute('aria-pressed', String(playing));
+                musicStatus.textContent = playing ? 'Now playing: A Place at the Table' : 'Lobby music paused.';
+            } catch (error) { musicStatus.textContent = 'Sound is unavailable in this browser.'; }
+            finally { musicButton.disabled = false; }
+        });
+        window.addEventListener('pagehide', () => { clearInterval(loop); if (audio) audio.suspend(); });
+        window.addEventListener('pageshow', () => {
+            if (playing) { playing = false; musicButton.textContent = 'Play lobby music'; musicButton.setAttribute('aria-pressed', 'false'); musicStatus.textContent = 'Click to resume the lobby music.'; }
+        });
+    </script>
+</body>
+</html>
