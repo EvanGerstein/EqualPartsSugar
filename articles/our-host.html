@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Thank You to Our Host</title>
+<style>
+body{margin:0;background:#080a09;color:#a9aca1;font:14px Georgia,serif}main{max-width:580px;margin:55px auto;padding:0 24px;text-align:center}h1{font:12px monospace;letter-spacing:4px;color:#72796e}h2{font-size:21px;letter-spacing:3px;font-weight:normal}p{line-height:1.9}.portrait{height:235px;width:190px;object-fit:cover;object-position:top;filter:grayscale(1) brightness(.5) contrast(1.6)}.prayer{margin:28px 0}.erased{color:#555e56;text-decoration:line-through}.records{text-align:left;border-top:1px solid #303830;margin-top:34px;font:12px 'Courier New',monospace}.records p{border-bottom:1px dotted #303830;padding:12px 0}.date{color:#626e62;font-size:10px}.wrong{letter-spacing:1px;color:#ccc6b3}button{background:transparent;border:1px solid #626d5c;color:#b9c0af;padding:8px 16px;font:12px Georgia;cursor:pointer}footer{margin:32px 0;font:10px monospace;color:#76806f}a{color:#889784}#sound{font:10px monospace;padding:4px 8px;margin-top:14px}.damage{font:10px monospace;color:#4e5c50;overflow-wrap:anywhere}
+</style></head>
+<body><main><h1>THANK YOU TO OUR HOST</h1><img class="portrait" src="../images/splinter.png" alt="Splinter, motionless in the dark">
+<h2>HE HAS ALWAYS PROVIDED.</h2><div class="prayer"><p>Before we had a table, he saved our seats.<br>Before we had names, he knew which ones to call.<br>Before we met him, we were grateful.</p><p>We remember no other host.<br><span class="erased">We took turns cooking.</span><br>We remember no other host.</p></div>
+<p id="response" aria-live="polite">You have thanked him before.</p><button id="thanks">Thank him again.</button>
+<p>We built the room before we built the restaurant.<br>We do not ask how he provides. We ask that he continues.</p>
+<section class="records" aria-label="Member appreciations"><p><span class="date"><a href="records/ledger-1997.html" style="color:inherit;text-decoration:none">11/12/2001</a> &mdash; Member 004</span><br>Thank you for keeping my place. You have always been here.</p><p><span class="date">11/12/2001 &mdash; Member 009</span><br>Thank you for keeping my place. You have always been here.</p><p><span class="date">11/12/2001 &mdash; Member 012</span><br>Thank you for keeping my place. You have always been here.</p><p class="wrong"><span class="date">11/12/2001 &mdash; author overwritten</span><br>I did not write this. Please stop signing my name.</p></section>
+<div class="damage">record restored / original unavailable / original unavailable</div><footer>Appreciation is voluntary. All members have participated.<br><br><a href="../index.html">Home</a> &bull; <a href="../audio/credits.html">Recording credit</a></footer></main>
+<script>
+const choir = new Audio('../audio/ave-verum-choir.ogg');
+choir.loop = true;
+choir.preload = 'auto';
+choir.volume = .6;
+choir.playbackRate = .86;
+choir.preservesPitch = false;
+let audio, surface;
+function prepareEffects() {
+    if (audio) return;
+    const Context = window.AudioContext || window.webkitAudioContext;
+    if (!Context) return;
+    audio = new Context();
+    const source = audio.createMediaElementSource(choir);
+    const distortion = audio.createWaveShaper();
+    const curve = new Float32Array(2048);
+    for (let i = 0; i < curve.length; i++) {
+        const x = 2 * i / (curve.length - 1) - 1;
+        curve[i] = Math.tanh(2.3 * x) / Math.tanh(2.3);
+    }
+    distortion.curve = curve;
+    distortion.oversample = '2x';
+    const lowpass = audio.createBiquadFilter();
+    lowpass.type = 'lowpass'; lowpass.frequency.value = 2400;
+    const highpass = audio.createBiquadFilter();
+    highpass.type = 'highpass'; highpass.frequency.value = 180;
+    const output = audio.createGain(); output.gain.value = .55;
+    source.connect(distortion); distortion.connect(highpass);
+    highpass.connect(lowpass); lowpass.connect(output); output.connect(audio.destination);
+    // Quiet continuous surface hiss with irregular, decaying vinyl pops.
+    const noise = audio.createBuffer(1, audio.sampleRate * 13, audio.sampleRate);
+    const samples = noise.getChannelData(0);
+    let pop = 0;
+    for (let i = 0; i < samples.length; i++) {
+        if (Math.random() < 8 / audio.sampleRate) pop = (Math.random() * 2 - 1) * .18;
+        pop *= .91;
+        samples[i] = (Math.random() * 2 - 1) * .009 + pop;
+    }
+    surface = audio.createBufferSource(); surface.buffer = noise; surface.loop = true;
+    surface.connect(lowpass); surface.start();
+}
+async function startSound() {
+    prepareEffects();
+    // Invoke both during the gesture so browser autoplay permissions apply.
+    const resume = audio ? audio.resume() : Promise.resolve();
+    await Promise.all([resume, choir.play()]);
+}
+document.getElementById('thanks').addEventListener('click', () => {
+    document.getElementById('response').textContent = 'Your appreciation has been recorded. November 12, 2001.';
+    startSound().catch(() => {});
+});
+// Browsers may require a gesture after navigation. No visible playback controls.
+window.addEventListener('pointerdown', () => { if (choir.paused || (audio && audio.state !== 'running')) startSound().catch(() => {}); });
+window.addEventListener('keydown', () => { if (choir.paused || (audio && audio.state !== 'running')) startSound().catch(() => {}); });
+startSound().catch(() => {});
+window.addEventListener('pagehide', () => { choir.pause(); if (audio) audio.suspend().catch(() => {}); });
+window.addEventListener('pageshow', event => { if (event.persisted) startSound().catch(() => {}); });
+</script></body></html>

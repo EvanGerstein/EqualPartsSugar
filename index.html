@@ -53,7 +53,33 @@
         <a href="mikeadeshina.html"><b>Play American Tower Defense!</b></a>
         <a href="shapequest.html"><b>Play ShapeQuest!</b></a>
         <div id="splinter-scare" role="img" aria-label="Splinter suddenly appears close to your face" hidden><img src="images/splinter.png" alt=""></div>
+        <input id="appreciation-answer" aria-label="Your appreciation" autocomplete="off" spellcheck="false" hidden style="display:block; width:220px; margin:40px 0;">
         <script>
+            const ritual = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowDown'];
+            let ritualPosition = 0;
+            const appreciationAnswer = document.getElementById('appreciation-answer');
+            window.addEventListener('keydown', function (event) {
+                if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                if (event.target.closest && event.target.closest('input, textarea, select, [contenteditable]')) return;
+                if (splinterState === 'scare' || !appreciationAnswer.isConnected) return;
+                if (!event.key.startsWith('Arrow')) { ritualPosition = 0; return; }
+                if (event.key === ritual[ritualPosition]) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    ritualPosition++;
+                    if (ritualPosition === ritual.length) {
+                        ritualPosition = 0;
+                        appreciationAnswer.hidden = false;
+                        appreciationAnswer.focus();
+                    }
+                } else { ritualPosition = event.key === ritual[0] ? 1 : 0; }
+            });
+            appreciationAnswer.addEventListener('input', function () {
+                if (this.value.trim().toUpperCase() === 'THANK YOU') {
+                    this.disabled = true;
+                    window.location.href = 'articles/our-host.html';
+                }
+            });
             const picture = document.getElementById('splinter-picture');
             let splinterState = 'idle';
             function updateSplinterDirection() {
